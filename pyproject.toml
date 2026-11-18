@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "neo-personal-assistant"
+version = "0.1.0"
+description = "CLI personal assistant for contacts, birthdays, notes and tags."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.setuptools.packages.find]
+include = ["assistant*"]
+
+# T03 adds ruff settings, T04 pytest, T26 the `assistant` command.
