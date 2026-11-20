@@ -13,4 +13,21 @@ dependencies = ["prompt_toolkit>=3.0"]
 [tool.setuptools.packages.find]
 include = ["assistant*"]
 
-# T03 adds ruff settings, T04 pytest, T26 the `assistant` command.
+# T04 adds pytest settings, T26 the `assistant` command.
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # pycodestyle: PEP 8 style
+    "F",       # pyflakes: unused imports/variables, undefined names
+    "I",       # import sorting
+    "N",       # PEP 8 naming
+    "B",       # bugbear: common bugs
+    "UP",      # modern Python syntax
+]
+
+[tool.ruff.format]
+quote-style = "double"
