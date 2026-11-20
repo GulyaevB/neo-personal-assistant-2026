@@ -120,7 +120,7 @@ def show(text: str) -> None:
 
 
 def success(text: str) -> None:
-    """Messages from cli itself, like "Goodbye!" (U2: green)."""
+    """Messages from cli itself, like "Good bye!" (U2: green)."""
     print(text)
 
 
