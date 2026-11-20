@@ -26,16 +26,17 @@ class Name(Field):
 
 
 class Phone(Field):
-    """10 digits, e.g. 0501234567."""
+    """Phone number, exactly 10 digits."""
 
     def __init__(self, value: str):
-        if len(value) != 10 or not (value.isascii() and value.isdigit()):
-            raise ValidationError("Phone number must contain exactly 10 digits.")
+        digits = isinstance(value, str) and value.isascii() and value.isdigit()
+        if not digits or len(value) != 10:
+            raise ValidationError(f"Invalid phone '{value}'. Use 10 digits.")
         super().__init__(value)
 
 
 class Email(Field):
-    """Email, e.g. john@example.com."""
+    """Email address."""
 
     def __init__(self, value: str):
         # TODO(T06): check the format (regex)
@@ -56,8 +57,8 @@ class Birthday(Field):
     def __init__(self, value: str):
         try:
             birthday = datetime.strptime(value, DATE_FORMAT).date()
-        except ValueError:
-            raise ValidationError("Invalid date format. Use DD.MM.YYYY.") from None
+        except (ValueError, TypeError):
+            raise ValidationError(f"Invalid date '{value}'. Use DD.MM.YYYY.") from None
         # TODO(T07): date in the future
         super().__init__(birthday)
 
