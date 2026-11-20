@@ -37,7 +37,7 @@ class AddressBook(UserDict):
     def search(self, query: str) -> list[Record]:
         """Find contacts by name, phone, email or address.
 
-        Case-insensitive, also finds names with small typos ("jhon" -> "John").
+        Case-insensitive, also finds names with small typos.
         """
         raise NotImplementedError  # TODO(T09)
 

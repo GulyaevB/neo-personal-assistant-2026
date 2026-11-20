@@ -37,7 +37,7 @@ class Record:
             if p.value == old_phone:
                 self.phones[i] = Phone(new_phone)
                 return
-        raise ValidationError(f"Phone {old_phone} not found.")
+        raise ValidationError(f"Contact '{self.name}' has no phone '{old_phone}'.")
 
     def find_phone(self, phone: str) -> Phone | None:
         """Return the Phone or None."""
@@ -59,10 +59,9 @@ class Record:
         self.birthday = Birthday(birthday)
 
     def to_dict(self) -> dict:
-        """Convert for JSON:
+        """Convert for JSON: name, phones, email, address, birthday (DD.MM.YYYY).
 
-        {"name": "John", "phones": ["0501234567"], "email": None,
-         "address": None, "birthday": "15.03.1990"}
+        Missing fields are None.
         """
         raise NotImplementedError  # TODO(T15)
 
