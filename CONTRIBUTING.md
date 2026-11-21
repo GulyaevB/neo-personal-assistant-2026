@@ -10,7 +10,7 @@ Requires Python 3.12 or newer.
 ```bash
 git clone https://github.com/GulyaevB/neo-personal-assistant-2026.git
 cd neo-personal-assistant-2026
-python3 -m venv .venv
+python3 -m venv .venv            # Windows: python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -e .                 # the project and its dependencies
 pip install ruff pytest          # dev tools
@@ -106,7 +106,9 @@ Layers (see `assistant/__init__.py`):
   `ValueError` / `KeyError` from models. `cli` shows the message with
   `ui.error()`.
 - **Ids:** models take `int`. Handlers convert user input with `parse_id()`
-  from `note_handlers.py`.
+  from `note_handlers.py` (added in T21).
+- **Days:** `birthdays <days>` — no argument -> 7 days; not a number or < 1 ->
+  `ValidationError("Invalid days 'abc'. Use a positive number.")`.
 - **Output:** formatting and colors live in `ui.py` (`format_note`,
   `format_contact`). Delete commands ask `ui.confirm()` first.
 - **Stubs:** unfinished code raises `NotImplementedError` with a
