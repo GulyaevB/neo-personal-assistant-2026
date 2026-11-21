@@ -1,4 +1,7 @@
-"""Our exceptions. cli shows the message to the user, so keep it short."""
+"""Our exceptions. cli shows the message to the user.
+
+Keep messages short: the wrong value in quotes, then what is expected.
+"""
 
 
 class AssistantError(Exception):
