@@ -21,7 +21,7 @@ def book():
 
 # --- Note ---
 def test_note_text_is_stripped():
-    assert Note(id=1, text="  hello  ").text == "hello"
+    assert Note(id=1, text="  hello  ").text == "WRONG"  # demo: failing test
 
 
 # Empty, spaces-only or missing text must be rejected
