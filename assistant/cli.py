@@ -25,7 +25,6 @@ def parse_input(line: str) -> tuple[str, list[str]]:
     return parts[0].lower(), parts[1:]
 
 
-
 def main() -> None:
     """Run until exit or close."""
 

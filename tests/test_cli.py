@@ -1,4 +1,3 @@
-
 """Tests for the CLI parser and application lifecycle (T17)."""
 
 import pytest
