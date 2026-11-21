@@ -13,7 +13,7 @@ dependencies = ["prompt_toolkit>=3.0"]
 [tool.setuptools.packages.find]
 include = ["assistant*"]
 
-# T04 adds pytest settings, T26 the `assistant` command.
+# T26 adds the `assistant` command.
 
 [tool.ruff]
 line-length = 88
@@ -31,3 +31,7 @@ select = [
 
 [tool.ruff.format]
 quote-style = "double"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
