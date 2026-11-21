@@ -1,10 +1,12 @@
 """Contact fields. Each field checks its value and raises ValidationError."""
 
+import re
 from datetime import datetime
 
 from assistant.exceptions import ValidationError
 
 DATE_FORMAT = "%d.%m.%Y"
+EMAIL_PATTERN = re.compile(r"[\w.+-]+@[\w-]+(\.[\w-]+)*\.[A-Za-z]{2,}")
 
 
 class Field:
@@ -36,19 +38,21 @@ class Phone(Field):
 
 
 class Email(Field):
-    """Email address."""
+    """Email address, checked with EMAIL_PATTERN."""
 
     def __init__(self, value: str):
-        # TODO(T06): check the format (regex)
+        if not isinstance(value, str) or not EMAIL_PATTERN.fullmatch(value):
+            raise ValidationError(f"Invalid email '{value}'. Use name@domain.com.")
         super().__init__(value)
 
 
 class Address(Field):
-    """Address, any text."""
+    """Address, any text except blank. Spaces around are removed."""
 
     def __init__(self, value: str):
-        # TODO(T06): empty address
-        super().__init__(value)
+        if not isinstance(value, str) or not value.strip():
+            raise ValidationError("Address can't be empty.")
+        super().__init__(value.strip())
 
 
 class Birthday(Field):
