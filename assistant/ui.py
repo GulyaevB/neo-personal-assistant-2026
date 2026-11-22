@@ -4,11 +4,13 @@ UX (U1-U4) changes what's inside the functions,
 but not the function names and arguments.
 """
 
+import re
 from collections.abc import Callable, Iterable
 
-from prompt_toolkit import PromptSession
+from prompt_toolkit import PromptSession, print_formatted_text
 from prompt_toolkit.completion import CompleteEvent, Completer, Completion
 from prompt_toolkit.document import Document
+from prompt_toolkit.formatted_text import FormattedText
 
 from assistant.commands import COMMANDS
 from assistant.notes import Note
@@ -23,6 +25,15 @@ FALLBACK_COMMANDS = (
     "search-notes", "add-tag", "remove-tag", "search-tag", "sort-notes",
     "help", "hello", "exit", "close",
 )  # fmt: skip
+
+# Colors (prompt_toolkit style strings).
+SUCCESS_STYLE = "ansigreen"
+ERROR_STYLE = "ansired"
+COMMAND_STYLE = "ansicyan bold"
+TAG_STYLE = "ansimagenta"
+
+# Tags at the end of a line: "... [home, work]".
+_TAGS_RE = re.compile(r"^(.*?)(\[[^\]]+\])\s*$")
 
 # Commands whose first argument is a contact name.
 NAME_COMMANDS = frozenset(
@@ -114,19 +125,60 @@ def read_command(prompt: str = "Enter a command: ") -> str:
     return _session.prompt(prompt)
 
 
+def style_success(text: str) -> FormattedText:
+    """Green text for success messages."""
+    return FormattedText([(SUCCESS_STYLE, text)])
+
+
+def style_error(text: str) -> FormattedText:
+    """Red text for errors."""
+    return FormattedText([(ERROR_STYLE, text)])
+
+
+def _highlight_line(line: str) -> list[tuple[str, str]]:
+    """Split one line into styled parts.
+
+    A known command at the start of the line (e.g. in help) is highlighted,
+    and tags in square brackets at the end of the line too.
+    """
+    parts: list[tuple[str, str]] = []
+    first = re.match(r"\S+", line)
+    if first and first.group().rstrip(":") in _command_names():
+        parts.append((COMMAND_STYLE, first.group()))
+        line = line[first.end() :]
+
+    tags = _TAGS_RE.match(line)
+    if tags:
+        parts.append(("", tags.group(1)))
+        parts.append((TAG_STYLE, tags.group(2)))
+    else:
+        parts.append(("", line))
+    return [(style, text) for style, text in parts if text]
+
+
+def highlight(text: str) -> FormattedText:
+    """Highlight commands and tags in a multi-line text."""
+    parts: list[tuple[str, str]] = []
+    for i, line in enumerate(text.split("\n")):
+        if i:
+            parts.append(("", "\n"))
+        parts.extend(_highlight_line(line))
+    return FormattedText(parts)
+
+
 def show(text: str) -> None:
-    """Show a command result (U2: highlight commands and tags)."""
-    print(text)
+    """Show a command result with commands and tags highlighted (U2)."""
+    print_formatted_text(highlight(text))
 
 
 def success(text: str) -> None:
     """Messages from cli itself, like "Good bye!" (U2: green)."""
-    print(text)
+    print_formatted_text(style_success(text))
 
 
 def error(text: str) -> None:
-    """Show an error (U2: red)."""
-    print(text)
+    """Show an error in red (U2)."""
+    print_formatted_text(style_error(text))
 
 
 def confirm(question: str) -> bool:
@@ -145,6 +197,8 @@ def format_contact(record: Record) -> str:
 
 
 def format_note(note: Note) -> str:
-    """Note as text (U2: highlight tags)."""
+    """Note as text; tags in [] at the end are highlighted by show() (U2)."""
+    if not note.tags:
+        return f"{note.id}: {note.text}"
     tags = ", ".join(sorted(note.tags))
     return f"{note.id}: {note.text} [{tags}]"
