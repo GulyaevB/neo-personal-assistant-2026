@@ -103,8 +103,15 @@ class NoteBook(UserDict):
         del self.data[note_id]
 
     def search(self, query: str) -> list[Note]:
-        """Notes that contain `query`, case-insensitive."""
-        raise NotImplementedError  # TODO(T12)
+        """Notes that contain `query`, case-insensitive.
+
+        Searches only the note text, not tags (tags: find_by_tag).
+        Empty query -> ValidationError.
+        """
+        if not isinstance(query, str) or not query.strip():
+            raise ValidationError("Search query can't be empty.")
+        query = query.strip().lower()
+        return [note for note in self.data.values() if query in note.text.lower()]
 
     def find_by_tag(self, tag: str) -> list[Note]:
         """Notes with this tag, case-insensitive."""

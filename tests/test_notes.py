@@ -163,6 +163,43 @@ def test_ids_are_not_reused_after_delete(book):
     assert book.add_note("new").id == 4
 
 
+# --- T12: search ---
+
+
+# Case doesn't matter and part of a word is enough: "DENT" finds "dentist".
+def test_search_is_case_insensitive_and_matches_part_of_word(book):
+    assert [note.id for note in book.search("DENT")] == [3]
+
+
+# All matching notes are returned, in id order.
+def test_search_returns_all_matching_notes_in_id_order(book):
+    book.add_note("Buy milk")
+    assert [note.id for note in book.search("buy")] == [1, 4]
+
+
+# Spaces typed around the query don't break the search.
+def test_search_ignores_spaces_around_query(book):
+    assert [note.id for note in book.search("  slides  ")] == [2]
+
+
+# No matches is not an error: handlers get an empty list.
+def test_search_without_matches_returns_empty_list(book):
+    assert book.search("python") == []
+
+
+# Search looks only at the text; tags are searched by find_by_tag (T13).
+def test_search_does_not_look_in_tags(book):
+    book.find(3).tags = {"health"}
+    assert book.search("health") == []
+
+
+# Empty, spaces-only or missing query is rejected with a clear error.
+@pytest.mark.parametrize("query", ["", "   ", None])
+def test_search_with_empty_query_raises_validation_error(book, query):
+    with pytest.raises(ValidationError):
+        book.search(query)
+
+
 # --- NoteBook: to_dict / from_dict (used by storage) ---
 
 
