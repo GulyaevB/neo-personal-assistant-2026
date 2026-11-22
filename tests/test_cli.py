@@ -29,18 +29,12 @@ def test_main_saves_on_exit(monkeypatch, exit_mode):
 
     monkeypatch.setattr(cli, "load_book", lambda: book)
     monkeypatch.setattr(cli, "load_notes", lambda: notes)
-    monkeypatch.setattr(
-        cli, "save_book", lambda value: saved.append(("book", value))
-    )
-    monkeypatch.setattr(
-        cli, "save_notes", lambda value: saved.append(("notes", value))
-    )
+    monkeypatch.setattr(cli, "save_book", lambda value: saved.append(("book", value)))
+    monkeypatch.setattr(cli, "save_notes", lambda value: saved.append(("notes", value)))
 
     monkeypatch.setattr(cli.ui, "show", lambda message: None)
     monkeypatch.setattr(cli.ui, "success", lambda message: None)
-    monkeypatch.setattr(
-        cli.ui, "set_completion_source", lambda source: None
-    )
+    monkeypatch.setattr(cli.ui, "set_completion_source", lambda source: None)
 
     def fake_read_command():
         if exit_mode == "ctrl_c":
@@ -67,9 +61,7 @@ def test_autocomplete_uses_current_contacts(monkeypatch):
     monkeypatch.setattr(cli.ui, "show", lambda message: None)
     monkeypatch.setattr(cli.ui, "success", lambda message: None)
     monkeypatch.setattr(cli.ui, "read_command", lambda: "exit")
-    monkeypatch.setattr(
-        cli.ui, "set_completion_source", captured.append
-    )
+    monkeypatch.setattr(cli.ui, "set_completion_source", captured.append)
 
     cli.main()
 
