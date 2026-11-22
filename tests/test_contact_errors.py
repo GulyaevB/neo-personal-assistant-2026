@@ -53,3 +53,11 @@ def test_delete_missing_contact_keeps_book(book):
     with pytest.raises(ContactNotFoundError):
         book.delete("Ann")
     assert list(book) == ["John"]
+
+
+def test_deleted_contact_is_not_found(book):
+    book.delete("John")
+    with pytest.raises(ContactNotFoundError):
+        book.find("John")
+    with pytest.raises(ContactNotFoundError):
+        book.delete("John")
