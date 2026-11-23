@@ -3,7 +3,7 @@ A team-based Python CLI application for managing contacts, birthdays, notes, and
 
 ## Installation and launch
 
-Requires Python 3.10 or newer. From the repository root, install the package:
+Requires Python 3.12 or newer. From the repository root, install the package:
 
 ```bash
 python -m pip install .
