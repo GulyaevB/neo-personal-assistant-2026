@@ -4,6 +4,7 @@ import pytest
 
 from assistant import note_handlers as nh
 from assistant.address_book import AddressBook
+from assistant.commands import COMMANDS
 from assistant.context import Context
 from assistant.exceptions import NoteNotFoundError, ValidationError
 from assistant.notes import NoteBook
@@ -120,3 +121,18 @@ def test_search_notes_nothing_found(ctx, monkeypatch):
 def test_search_notes_without_query(ctx):
     with pytest.raises(ValidationError, match="Use: search-notes <text>"):
         nh.search_notes([], ctx)
+
+
+# registration (T18)
+
+
+@pytest.mark.parametrize(
+    "name", ["add-note", "edit-note", "delete-note", "all-notes", "search-notes"]
+)
+def test_note_commands_are_registered(name):
+    assert name in COMMANDS
+    assert COMMANDS[name].help_text.startswith(name)
+
+
+def test_registered_handler_runs(ctx):
+    assert COMMANDS["add-note"].handler(["Buy", "milk"], ctx) == "Note 1 added."

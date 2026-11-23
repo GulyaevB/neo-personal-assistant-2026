@@ -3,10 +3,13 @@
 Every handler takes (args, ctx) and returns a string to show.
 On error it raises AssistantError, cli shows it in red.
 The note id comes as a string, parse_id() turns it into an int.
+Commands are registered with @command (T18); @input_error is below it.
 """
 
 from assistant import ui
+from assistant.commands import command
 from assistant.context import Context
+from assistant.decorators import input_error
 from assistant.exceptions import ValidationError
 
 
@@ -27,6 +30,8 @@ def _require(args: list[str], count: int, usage: str) -> None:
         raise ValidationError(f"Missing arguments. Use: {usage}")
 
 
+@command("add-note")
+@input_error
 def add_note(args: list[str], ctx: Context) -> str:
     """add-note <text...>: create a note."""
     _require(args, 1, "add-note <text>")
@@ -34,6 +39,8 @@ def add_note(args: list[str], ctx: Context) -> str:
     return f"Note {note.id} added."
 
 
+@command("edit-note")
+@input_error
 def edit_note(args: list[str], ctx: Context) -> str:
     """edit-note <id> <text...>: replace the text of a note."""
     _require(args, 2, "edit-note <id> <text>")
@@ -42,8 +49,10 @@ def edit_note(args: list[str], ctx: Context) -> str:
     return f"Note {note_id} updated."
 
 
+@command("delete-note")
+@input_error
 def delete_note(args: list[str], ctx: Context) -> str:
-    """delete-note <id>: delete a note (asks for confirmation)."""
+    """delete-note <id>: delete a note."""
     _require(args, 1, "delete-note <id>")
     note_id = parse_id(args[0])
     # TODO(U4): ask ui.confirm() before deleting
@@ -51,6 +60,8 @@ def delete_note(args: list[str], ctx: Context) -> str:
     return f"Note {note_id} deleted."
 
 
+@command("all-notes")
+@input_error
 def show_all_notes(args: list[str], ctx: Context) -> str:
     """all-notes: show all notes."""
     if not ctx.notes:
@@ -59,6 +70,8 @@ def show_all_notes(args: list[str], ctx: Context) -> str:
     return "\n".join(ui.format_note(note) for note in notes)
 
 
+@command("search-notes")
+@input_error
 def search_notes(args: list[str], ctx: Context) -> str:
     """search-notes <query>: find notes by text."""
     _require(args, 1, "search-notes <text>")
