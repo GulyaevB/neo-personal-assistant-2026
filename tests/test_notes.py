@@ -236,3 +236,89 @@ def test_from_dict_without_next_id_uses_biggest_id_plus_one():
         "notes": [{"id": 5, "text": "x", "tags": [], "created": "2026-11-18T10:15:00"}]
     }
     assert NoteBook.from_dict(data).add_note("new").id == 6
+
+
+# --- T13: tags ---
+
+
+# Tags are stored in lowercase: "Work" and "work" are the same tag.
+def test_add_tag_stores_lowercase():
+    note = Note(id=1, text="text")
+    note.add_tag("Work")
+    assert note.tags == {"work"}
+
+
+# A duplicate tag is not added (any case) and the user gets a clear error.
+def test_add_duplicate_tag_raises_and_keeps_tags():
+    note = Note(id=1, text="text", tags={"work"})
+    with pytest.raises(ValidationError):
+        note.add_tag("WORK")
+    assert note.tags == {"work"}
+
+
+# Allowed characters: letters (any alphabet), digits, _ and -.
+@pytest.mark.parametrize("tag", ["python3", "to_do", "follow-up", "навчання"])
+def test_valid_tags_are_accepted(tag):
+    note = Note(id=1, text="text")
+    note.add_tag(tag)
+    assert note.tags == {tag}
+
+
+# A tag must be one word without spaces or other symbols.
+@pytest.mark.parametrize("tag", ["two words", "", "   ", "#tag", "tag!", None])
+def test_invalid_tag_raises_validation_error(tag):
+    note = Note(id=1, text="text")
+    with pytest.raises(ValidationError):
+        note.add_tag(tag)
+    assert note.tags == set()
+
+
+# remove_tag works in any case and keeps the other tags.
+def test_remove_tag():
+    note = Note(id=1, text="text", tags={"work", "home"})
+    note.remove_tag("WORK")
+    assert note.tags == {"home"}
+
+
+# Removing a tag the note doesn't have is a clear error, not a silent no-op.
+def test_remove_missing_tag_raises_validation_error():
+    note = Note(id=1, text="text", tags={"home"})
+    with pytest.raises(ValidationError):
+        note.remove_tag("work")
+
+
+# Tags loaded from a file are checked too (bad file data -> ValidationError).
+def test_note_with_invalid_tag_in_data_raises_validation_error():
+    data = {
+        "id": 1,
+        "text": "x",
+        "tags": ["two words"],
+        "created": "2026-11-18T10:15:00",
+    }
+    with pytest.raises(ValidationError):
+        Note.from_dict(data)
+
+
+# find_by_tag returns all notes with the tag, in id order, case-insensitive.
+def test_find_by_tag_returns_matching_notes(book):
+    book.find(1).add_tag("shopping")
+    book.find(3).add_tag("shopping")
+    book.find(2).add_tag("study")
+    assert [note.id for note in book.find_by_tag("Shopping")] == [1, 3]
+
+
+# The whole tag must match: "stud" doesn't find "study".
+def test_find_by_tag_is_exact(book):
+    book.find(2).add_tag("study")
+    assert book.find_by_tag("stud") == []
+
+
+# No notes with the tag is not an error: handlers get an empty list.
+def test_find_by_tag_without_matches_returns_empty_list(book):
+    assert book.find_by_tag("travel") == []
+
+
+# An invalid tag in the search is rejected the same way as in add_tag.
+def test_find_by_tag_with_invalid_tag_raises_validation_error(book):
+    with pytest.raises(ValidationError):
+        book.find_by_tag("two words")
