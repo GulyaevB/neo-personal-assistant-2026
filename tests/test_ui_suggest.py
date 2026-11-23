@@ -1,8 +1,17 @@
 """Tests for typo suggestions in ui.py (U3)."""
 
+import pytest
+
 from assistant import ui
 
 COMMANDS = ["add", "add-note", "all", "birthdays", "change", "phone", "exit"]
+
+
+@pytest.fixture(autouse=True)
+def registered_commands(monkeypatch):
+    """Typos are suggested only for names present in the live registry."""
+    monkeypatch.setattr(ui, "COMMANDS", dict.fromkeys(COMMANDS))
+
 
 
 def test_ad_suggests_add():
