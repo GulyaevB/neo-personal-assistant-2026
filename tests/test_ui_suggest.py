@@ -13,7 +13,6 @@ def registered_commands(monkeypatch):
     monkeypatch.setattr(ui, "COMMANDS", dict.fromkeys(COMMANDS))
 
 
-
 def test_ad_suggests_add():
     """Acceptance criterion of U3: ad -> add."""
     assert ui.suggest("ad", COMMANDS)[0] == "add"
