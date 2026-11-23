@@ -147,8 +147,15 @@ class NoteBook(UserDict):
         """Notes sorted by tag A-Z, notes without tags at the end.
 
         If a note has several tags, use the first one in A-Z order.
+        Notes with the same first tag keep their id order.
         """
-        raise NotImplementedError  # TODO(T14)
+
+        def sort_key(note: Note) -> tuple[bool, str, int]:
+            # False < True, so notes with tags come first
+            first_tag = min(note.tags) if note.tags else ""
+            return (not note.tags, first_tag, note.id)
+
+        return sorted(self.data.values(), key=sort_key)
 
     def to_dict(self) -> dict:
         """Convert for JSON: {"next_id": 4, "notes": [note, ...]}."""
