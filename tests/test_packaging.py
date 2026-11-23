@@ -26,7 +26,7 @@ def test_console_script_metadata_points_to_cli_main():
     assert len(scripts) == 1
     assert scripts[0].value == "assistant.cli:main"
     assert scripts[0].load() is main
-    assert package.metadata["Requires-Python"] == ">=3.10"
+    assert package.metadata["Requires-Python"] == ">=3.12"
 
 
 @pytest.mark.parametrize("entrypoint", ["console", "module"])
