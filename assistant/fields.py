@@ -1,7 +1,7 @@
 """Contact fields. Each field checks its value and raises ValidationError."""
 
 import re
-from datetime import datetime
+from datetime import date, datetime
 
 from assistant.exceptions import ValidationError
 
@@ -20,11 +20,12 @@ class Field:
 
 
 class Name(Field):
-    """Contact name, also the key in AddressBook."""
+    """Contact name, also the key in AddressBook. Spaces around are removed."""
 
     def __init__(self, value: str):
-        # TODO(T07): empty name
-        super().__init__(value)
+        if not isinstance(value, str) or not value.strip():
+            raise ValidationError("Name can't be empty.")
+        super().__init__(value.strip())
 
 
 class Phone(Field):
@@ -63,7 +64,8 @@ class Birthday(Field):
             birthday = datetime.strptime(value, DATE_FORMAT).date()
         except (ValueError, TypeError):
             raise ValidationError(f"Invalid date '{value}'. Use DD.MM.YYYY.") from None
-        # TODO(T07): date in the future
+        if birthday > date.today():
+            raise ValidationError(f"Birthday '{value}' is in the future.")
         super().__init__(birthday)
 
     def __str__(self) -> str:
