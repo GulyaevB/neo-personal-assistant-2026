@@ -7,17 +7,18 @@ name = "neo-personal-assistant"
 version = "0.1.0"
 description = "CLI personal assistant for contacts, birthdays, notes and tags."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 dependencies = ["prompt_toolkit>=3.0"]
 
 [tool.setuptools.packages.find]
 include = ["assistant*"]
 
-# T26 adds the `assistant` command.
+[project.scripts]
+assistant = "assistant.cli:main"
 
 [tool.ruff]
 line-length = 88
-target-version = "py312"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = [
