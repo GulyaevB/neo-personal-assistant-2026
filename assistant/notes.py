@@ -1,10 +1,13 @@
 """Notes and tags."""
 
+import re
 from collections import UserDict
 from dataclasses import dataclass, field
 from datetime import datetime
 
 from assistant.exceptions import NoteNotFoundError, ValidationError
+
+TAG_PATTERN = re.compile(r"[\w-]+")
 
 
 def _clean_text(text: str) -> str:
@@ -12,6 +15,19 @@ def _clean_text(text: str) -> str:
     if not isinstance(text, str) or not text.strip():
         raise ValidationError("Note text can't be empty.")
     return text.strip()
+
+
+def _clean_tag(tag: str) -> str:
+    """Return the tag in lowercase, or raise ValidationError.
+
+    A tag is one word: letters, digits, _ or -.
+    """
+    tag = tag.strip().lower() if isinstance(tag, str) else ""
+    if not TAG_PATTERN.fullmatch(tag):
+        raise ValidationError(
+            f"Invalid tag '{tag}'. Use one word: letters, digits, _ or -."
+        )
+    return tag
 
 
 @dataclass
@@ -30,19 +46,25 @@ class Note:
     def __post_init__(self):
         """Check the rules (works for from_dict too)."""
         self.text = _clean_text(self.text)
-        self.tags = {tag.strip().lower() for tag in self.tags}
+        self.tags = {_clean_tag(tag) for tag in self.tags}
 
     def edit(self, text: str) -> None:
         """Change the text. The old text stays if the new one is empty."""
         self.text = _clean_text(text)
 
     def add_tag(self, tag: str) -> None:
-        """Add a tag."""
-        raise NotImplementedError  # TODO(T13)
+        """Add a tag. A tag the note already has -> ValidationError."""
+        tag = _clean_tag(tag)
+        if tag in self.tags:
+            raise ValidationError(f"Note {self.id} already has tag '{tag}'.")
+        self.tags.add(tag)
 
     def remove_tag(self, tag: str) -> None:
-        """Remove a tag."""
-        raise NotImplementedError  # TODO(T13)
+        """Remove a tag. A tag the note doesn't have -> ValidationError."""
+        tag = _clean_tag(tag)
+        if tag not in self.tags:
+            raise ValidationError(f"Note {self.id} has no tag '{tag}'.")
+        self.tags.remove(tag)
 
     def to_dict(self) -> dict:
         """Convert for JSON:
@@ -114,8 +136,12 @@ class NoteBook(UserDict):
         return [note for note in self.data.values() if query in note.text.lower()]
 
     def find_by_tag(self, tag: str) -> list[Note]:
-        """Notes with this tag, case-insensitive."""
-        raise NotImplementedError  # TODO(T13)
+        """Notes with this tag, case-insensitive.
+
+        The whole tag must match: "study" doesn't find "studying".
+        """
+        tag = _clean_tag(tag)
+        return [note for note in self.data.values() if tag in note.tags]
 
     def sort_by_tags(self) -> list[Note]:
         """Notes sorted by tag A-Z, notes without tags at the end.
