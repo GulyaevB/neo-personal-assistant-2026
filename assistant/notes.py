@@ -20,14 +20,14 @@ def _clean_text(text: str) -> str:
 def _clean_tag(tag: str) -> str:
     """Return the tag in lowercase, or raise ValidationError.
 
-    A tag is one word: letters, digits, _ or -.
+    A tag is one word: letters (any language), digits, _ or -.
     """
-    tag = tag.strip().lower() if isinstance(tag, str) else ""
-    if not TAG_PATTERN.fullmatch(tag):
+    cleaned = tag.strip().lower() if isinstance(tag, str) else ""
+    if not TAG_PATTERN.fullmatch(cleaned):
         raise ValidationError(
             f"Invalid tag '{tag}'. Use one word: letters, digits, _ or -."
         )
-    return tag
+    return cleaned
 
 
 @dataclass
