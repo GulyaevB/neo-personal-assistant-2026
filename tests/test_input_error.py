@@ -67,9 +67,7 @@ def _run_cli(monkeypatch, handler, user_commands):
     goodbyes = []
     saved = []
 
-    monkeypatch.setattr(
-        cli, "COMMANDS", {"demo": SimpleNamespace(handler=handler)}
-    )
+    monkeypatch.setattr(cli, "COMMANDS", {"demo": SimpleNamespace(handler=handler)})
     monkeypatch.setattr(cli, "load_book", AddressBook)
     monkeypatch.setattr(cli, "load_notes", NoteBook)
     monkeypatch.setattr(cli, "save_book", lambda _: saved.append("book"))
