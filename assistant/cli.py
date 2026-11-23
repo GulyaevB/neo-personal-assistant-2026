@@ -10,6 +10,7 @@ from importlib import import_module
 from assistant import ui
 from assistant.commands import COMMANDS
 from assistant.context import Context
+from assistant.decorators import MISSING_ARGUMENTS_MESSAGE
 from assistant.exceptions import AssistantError
 from assistant.storage import load_book, load_notes, save_book, save_notes
 
@@ -70,6 +71,9 @@ def main() -> None:
                 result = command_info.handler(args, ctx)
             except AssistantError as exc:
                 ui.error(str(exc))
+            except IndexError:
+                # Safety net when a handler has not yet added @input_error.
+                ui.error(MISSING_ARGUMENTS_MESSAGE)
             else:
                 if result:
                     ui.show(result)
