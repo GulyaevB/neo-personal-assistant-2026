@@ -4,6 +4,7 @@ UX (U1-U4) changes what's inside the functions,
 but not the function names and arguments.
 """
 
+import difflib
 import re
 from collections.abc import Callable, Iterable
 
@@ -187,8 +188,26 @@ def confirm(question: str) -> bool:
 
 
 def suggest(word: str, commands: list[str]) -> list[str]:
-    """Similar commands for a typo (U3: difflib)."""
-    return []
+    """Commands similar to a mistyped word, best match first (U3).
+
+    "ad" -> ["add"], "phnoe" -> ["phone"], "xyz" -> [].
+    """
+    word = word.strip().lower()
+    if not word:
+        return []
+    return difflib.get_close_matches(word, commands, n=3, cutoff=0.6)
+
+
+def unknown_command_message(command: str) -> str:
+    """Error text for an unknown command, with a hint if one is close (U3).
+
+    "ad" -> "Unknown command 'ad'. Did you mean: add?"
+    """
+    message = f"Unknown command '{command}'."
+    matches = suggest(command, _command_names())
+    if matches:
+        message += f" Did you mean: {', '.join(matches)}?"
+    return message
 
 
 def format_contact(record: Record) -> str:

@@ -62,7 +62,7 @@ def main() -> None:
             command_info = COMMANDS.get(command)
 
             if command_info is None:
-                ui.error(f"Unknown command '{command}'.")
+                ui.error(ui.unknown_command_message(command))
                 continue
 
             # Execute the handler with its arguments and shared context.
