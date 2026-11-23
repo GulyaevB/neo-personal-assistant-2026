@@ -40,11 +40,8 @@ def test_generated_help_is_sorted_and_uses_docstrings(isolated_registry):
         """
         return ""
 
-    assert commands.get_help() == (
-        "Available commands:\n"
-        "alpha: first command.\n"
-        "zeta: last command."
-    )
+    expected = "Available commands:\nalpha: first command.\nzeta: last command."
+    assert commands.get_help() == expected
 
 
 def test_duplicate_command_is_rejected(isolated_registry):
