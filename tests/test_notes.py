@@ -322,3 +322,77 @@ def test_find_by_tag_without_matches_returns_empty_list(book):
 def test_find_by_tag_with_invalid_tag_raises_validation_error(book):
     with pytest.raises(ValidationError):
         book.find_by_tag("two words")
+
+
+# --- T14: sort by tags ---
+
+
+# Notes are sorted by tag A-Z; notes without tags go to the end.
+
+
+def test_sort_by_tags_alphabetical_untagged_last(book):
+    book.find(1).add_tag("work")
+    book.find(3).add_tag("art")
+    assert [note.id for note in book.sort_by_tags()] == [3, 1, 2]
+
+
+# A note with several tags is sorted by its first tag in A-Z order.
+def test_sort_by_tags_uses_first_tag_alphabetically(book):
+    book.find(1).add_tag("zoo")
+    book.find(1).add_tag("apple")
+    book.find(2).add_tag("banana")
+    assert [note.id for note in book.sort_by_tags()] == [1, 2, 3]
+
+
+# Notes with the same first tag keep their id order.
+def test_sort_by_tags_equal_tags_keep_id_order(book):
+    book.find(3).add_tag("home")
+    book.find(1).add_tag("home")
+    assert [note.id for note in book.sort_by_tags()] == [1, 3, 2]
+
+
+# Untagged notes at the end also keep their id order.
+def test_sort_by_tags_without_any_tags_keeps_id_order(book):
+    assert [note.id for note in book.sort_by_tags()] == [1, 2, 3]
+
+
+# Empty notebook is not an error: handlers get an empty list.
+def test_sort_by_tags_on_empty_notebook():
+    assert NoteBook().sort_by_tags() == []
+
+
+# Sorting returns a new list and does not change the notebook.
+def test_sort_by_tags_does_not_change_notebook(book):
+    book.find(3).add_tag("art")
+    book.sort_by_tags()
+    assert list(book.keys()) == [1, 2, 3]
+
+
+# Case doesn't affect the order: tags are stored in lowercase.
+def test_sort_by_tags_ignores_case(book):
+    book.find(1).add_tag("Banana")
+    book.find(2).add_tag("apple")
+    assert [note.id for note in book.sort_by_tags()] == [2, 1, 3]
+
+
+# A note whose tags were all removed counts as untagged.
+def test_sort_by_tags_note_with_removed_tags_goes_last(book):
+    book.find(1).add_tag("work")
+    book.find(1).remove_tag("work")
+    book.find(2).add_tag("home")
+    assert [note.id for note in book.sort_by_tags()] == [2, 1, 3]
+
+
+# Ids with gaps (after delete) are still sorted correctly.
+def test_sort_by_tags_after_delete(book):
+    book.delete(2)
+    book.add_note("New").add_tag("art")
+    assert [note.id for note in book.sort_by_tags()] == [4, 1, 3]
+
+
+# Order of other characters: digits, then Latin, then Cyrillic letters.
+def test_sort_by_tags_digits_latin_cyrillic(book):
+    book.find(1).add_tag("навчання")
+    book.find(2).add_tag("zoo")
+    book.find(3).add_tag("2026")
+    assert [note.id for note in book.sort_by_tags()] == [3, 2, 1]

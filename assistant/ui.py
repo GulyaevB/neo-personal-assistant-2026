@@ -4,6 +4,7 @@ UX (U1-U4) changes what's inside the functions,
 but not the function names and arguments.
 """
 
+import difflib
 import re
 from collections.abc import Callable, Iterable
 
@@ -15,16 +16,6 @@ from prompt_toolkit.formatted_text import FormattedText
 from assistant.commands import COMMANDS
 from assistant.notes import Note
 from assistant.record import Record
-
-# Used while COMMANDS is still empty (T18 not merged yet).
-# TODO(U1): remove after T18, then commands come only from COMMANDS.
-FALLBACK_COMMANDS = (
-    "add", "change", "remove-phone", "add-email", "add-address",
-    "add-birthday", "phone", "show-birthday", "all", "search", "delete",
-    "birthdays", "add-note", "edit-note", "delete-note", "all-notes",
-    "search-notes", "add-tag", "remove-tag", "search-tag", "sort-notes",
-    "help", "hello", "exit", "close",
-)  # fmt: skip
 
 # Colors (prompt_toolkit style strings).
 SUCCESS_STYLE = "ansigreen"
@@ -72,8 +63,7 @@ def set_completion_source(get_names: Callable[[], Iterable[str]]) -> None:
 
 def _command_names() -> list[str]:
     """Names of all commands, sorted."""
-    names = COMMANDS.keys() if COMMANDS else FALLBACK_COMMANDS
-    return sorted(names)
+    return sorted(COMMANDS)
 
 
 def _word_index(text: str) -> int:
@@ -187,8 +177,26 @@ def confirm(question: str) -> bool:
 
 
 def suggest(word: str, commands: list[str]) -> list[str]:
-    """Similar commands for a typo (U3: difflib)."""
-    return []
+    """Commands similar to a mistyped word, best match first (U3).
+
+    "ad" -> ["add"], "phnoe" -> ["phone"], "xyz" -> [].
+    """
+    word = word.strip().lower()
+    if not word:
+        return []
+    return difflib.get_close_matches(word, commands, n=3, cutoff=0.6)
+
+
+def unknown_command_message(command: str) -> str:
+    """Error text for an unknown command, with a hint if one is close (U3).
+
+    "ad" -> "Unknown command 'ad'. Did you mean: add?"
+    """
+    message = f"Unknown command '{command}'."
+    matches = suggest(command, _command_names())
+    if matches:
+        message += f" Did you mean: {', '.join(matches)}?"
+    return message
 
 
 def format_contact(record: Record) -> str:

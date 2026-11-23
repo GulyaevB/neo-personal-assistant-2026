@@ -5,7 +5,15 @@ Only the pure styling functions are tested, so no terminal is needed.
 
 from types import SimpleNamespace
 
+import pytest
+
 from assistant import ui
+
+
+@pytest.fixture(autouse=True)
+def registered_commands(monkeypatch):
+    """Test highlighting using live command names from the registry."""
+    monkeypatch.setattr(ui, "COMMANDS", dict.fromkeys(("add", "phone")))
 
 
 def parts(formatted) -> list[tuple[str, str]]:
