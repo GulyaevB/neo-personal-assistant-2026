@@ -12,6 +12,16 @@ from assistant import ui
 
 
 @pytest.fixture(autouse=True)
+def test_command_registry(monkeypatch):
+    """Simulate handlers registered by T19/T20; UI uses live registry keys."""
+    monkeypatch.setattr(
+        ui,
+        "COMMANDS",
+        dict.fromkeys(("add", "add-note", "birthdays", "exit", "help", "phone")),
+    )
+
+
+@pytest.fixture(autouse=True)
 def contact_names(monkeypatch):
     """Every test sees the same three contacts; restored after the test."""
     monkeypatch.setattr(ui, "_get_names", lambda: ["John", "Anna", "Johanna"])
