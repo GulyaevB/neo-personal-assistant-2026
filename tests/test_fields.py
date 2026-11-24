@@ -74,9 +74,20 @@ def test_phone_error_shows_value():
 # --- Email ---
 
 
-@pytest.mark.parametrize("value", ["A@B.COM", "first.last+tag@sub.domain.com"])
+@pytest.mark.parametrize(
+    "value", ["A@B.COM", "first.last+tag@sub.domain.com", "a.b.c@mail.com"]
+)
 def test_email_accepts_common_formats(value):
     assert Email(value).value == value
+
+
+# Dots: not two in a row, not at the start or end of a part (T34).
+@pytest.mark.parametrize(
+    "value", ["a..b@c.com", ".a@c.com", "a.@c.com", ".@c.com", "a@b..com", "a@.b.com"]
+)
+def test_email_rejects_bad_dots(value):
+    with pytest.raises(ValidationError, match=f"Invalid email '{value}'"):
+        Email(value)
 
 
 # Spaces around the email are not accepted (the user must fix the input).
