@@ -74,6 +74,7 @@ def test_save_replaces_old_file(tmp_path):
         '{"contacts": [{"name": "John", "phones": null}]}',
         '{"contacts": ["John"]}',
         '{"contacts": [{"name": "John"}, {"name": " John "}]}',
+        '{"contacts": [{"name": "John"}, {"name": "john"}]}',
     ],
 )
 def test_broken_contacts_file_goes_to_bak(tmp_path, text):
