@@ -12,6 +12,8 @@ from assistant.decorators import input_error
 from assistant.exceptions import ValidationError
 from assistant.record import Record
 
+DEFAULT_DAYS = 7
+
 
 def _require(args: list[str], count: int, usage: str) -> None:
     """Not enough arguments -> ValidationError that shows the right format."""
@@ -127,11 +129,43 @@ def delete_contact(args: list[str], ctx: Context) -> str:
     return f"Contact '{name}' deleted."
 
 
+@command("search")
+@input_error
 def search_contacts(args: list[str], ctx: Context) -> str:
     """search <query>: find contacts by name, phone, email or address."""
-    raise NotImplementedError  # TODO(T20)
+    _require(args, 1, "search <query>")
+    query = " ".join(args)
+    found = ctx.book.search(query)
+    if not found:
+        return f"No contacts found for '{query}'."
+    records = sorted(found, key=lambda record: record.name.value.lower())
+    return "\n".join(ui.format_contact(record) for record in records)
 
 
+def parse_days(args: list[str]) -> int:
+    """Days for `birthdays`: no argument -> 7, not a number or < 1 -> error."""
+    if not args:
+        return DEFAULT_DAYS
+    value = args[0]
+    try:
+        days = int(value)
+    except ValueError:
+        days = 0
+    if days < 1:
+        raise ValidationError(f"Invalid days '{value}'. Use a positive number.")
+    return days
+
+
+@command("birthdays")
+@input_error
 def birthdays(args: list[str], ctx: Context) -> str:
     """birthdays [days]: show birthdays in the next N days (default 7)."""
-    raise NotImplementedError  # TODO(T20)
+    days = parse_days(args)
+    upcoming = ctx.book.get_upcoming_birthdays(days)
+    period = "today" if days == 1 else f"in the next {days} days"
+    if not upcoming:
+        return f"No birthdays {period}."
+    lines = [f"Birthdays {period}:"]
+    for record, day in upcoming:
+        lines.append(f"{day:%d.%m.%Y} ({day:%a})  {record.name}")
+    return "\n".join(lines)
