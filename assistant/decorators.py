@@ -3,7 +3,7 @@
 from functools import wraps
 
 from assistant.context import Handler
-from assistant.exceptions import AssistantError, ValidationError
+from assistant.exceptions import ValidationError
 
 MISSING_ARGUMENTS_MESSAGE = (
     "Not enough arguments. Type 'help' to see the command format."
@@ -22,9 +22,6 @@ def input_error(func: Handler) -> Handler:
     def inner(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except AssistantError:
-            # Preserve the original subtype and helpful domain-specific text.
-            raise
         except IndexError:
             raise ValidationError(MISSING_ARGUMENTS_MESSAGE) from None
 
