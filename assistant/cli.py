@@ -78,7 +78,7 @@ def main() -> None:
         ui.success("Goodbye!")
 
     finally:
-        # T16 will implement the actual disk persistence.
+        # Save on any exit; notes are saved even if contacts fail.
         try:
             save_book(ctx.book)
         finally:
