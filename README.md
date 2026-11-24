@@ -8,7 +8,7 @@ A team-built Python command-line application for managing contacts, birthdays, a
 - **CLI usability:** generated `help`, command and contact-name Tab completion, colored messages, and suggestions for mistyped commands.
 - **Packaging:** install a Python package and launch with either `assistant` or `python -m assistant`.
 
-> **Development status (24 November 2026):** All commands documented below are implemented on `main`. Disk persistence is **not yet implemented** in `assistant/storage.py` (T16); data created in the CLI is currently kept only in memory and will **not survive restarting the application**. The current delete commands execute **without confirmation** (U4 is pending). CLI tag commands are planned separately under T22 and are not available yet. Do not use this development build for important data.
+> **Development status (24 November 2026):** T16 persistent JSON storage is implemented on `main`: contacts and notes are loaded when the application starts, and saved when it exits normally (`exit`, `close`, Ctrl+C, or EOF). Saving does **not** happen after each individual command, so an interrupted session may lose unsaved changes. Deleting contacts and notes still happens **without confirmation** (U4 pending); optional tag CLI commands (T22), Windows non-interactive console fallback (T33), unexpected-error recovery (T32), and contact lookup/email refinements (T34) are not yet integrated. Treat this as a student project, not a production backup system.
 
 ## Requirements
 
@@ -121,11 +121,12 @@ Note IDs begin at `1` and increase as notes are added. Use `all-notes` to find t
 
 ### Command input and validation
 
-- **Contact names:** exact lookup commands such as `phone John` use the stored spelling and are currently case-sensitive. `search john` is case-insensitive and tolerates some name typos.
+- **Contact names:** exact lookup commands such as `phone John` use the stored spelling and are currently case-sensitive; `phone john` will not find a contact saved as `John`. `search john` is case-insensitive and tolerates some name typos. T34 proposes changing exact lookup and preventing `John`/`john` duplicates; these changes are not merged yet.
 - **Whitespace:** the command parser separates tokens on spaces. Use a single token for `<name>`; commands ending in `<text...>`, `<address...>`, or `<query...>` combine all remaining words. Shell-style quotation marks are not parsed specially.
 - **Phone numbers:** exactly **10 ASCII digits**, without country prefix, spaces, plus signs, or dashes; duplicate phones on a record are rejected.
 - **Birthdays:** `DD.MM.YYYY` using valid dates no later than today. `birthdays` looks ahead seven calendar days by default (including today); `birthdays 1` looks only at today, and the day-count argument must be a positive integer. Birthdays are shown on their **actual calendar dates** without weekend shifting.
-- **Notes:** blank note text is rejected. Note IDs must be numeric and must identify an existing note for edit/delete.
+- **Notes:** blank note text is rejected. Note IDs must be numeric and must identify an existing note for edit/delete. IDs are persisted across restarts.
+- **Email validation:** a basic syntax check runs on `add-email`. It currently accepts some malformed addresses such as `a..b@c.com`; T34 is tracking stricter validation.
 - **Errors:** expected validation and not-found errors display readable messages instead of successful-result text. The broader unexpected-error recovery task is T32 and is not yet merged.
 
 ### Tab completion and helpful feedback
@@ -138,7 +139,7 @@ T22 covers the optional tag CLI workflow: `add-tag`, `remove-tag`, `search-tag`,
 
 ## Example interactive session
 
-The following is a sequence of commands typed **inside** the assistant. Responses and the contents of `all` depend on the current in-memory data:
+The following is a sequence of commands typed **inside** the assistant. Responses and the contents of `all` depend on the contacts and notes currently loaded from disk:
 
 ```text
 help
@@ -157,20 +158,34 @@ all
 exit
 ```
 
-**Data safety:** Until T16 is completed, reopening the assistant starts with empty contacts and notes. Do not rely on this build to retain the example data.
+**Persistence check:** after the final `exit`, start the assistant again and enter `all` and `all-notes`. The contacts and notes created above should be restored from JSON. Data is written when the session exits, not immediately after each command.
 
 ## Data storage and reliability
 
-The storage module defines the intended local data location:
+T16 stores application data in a per-user directory under the home folder:
 
-| Planned file | Purpose |
+| File | Contents |
 | --- | --- |
-| `~/.personal_assistant/contacts.json` | Serialized contacts/address book |
-| `~/.personal_assistant/notes.json` | Serialized notes, tags, and next-note ID |
+| `~/.personal_assistant/contacts.json` | Serialized contacts, including phones, email, address, and birthdays |
+| `~/.personal_assistant/notes.json` | Serialized notes, tags, timestamps, and next-note ID |
 
-**Current implementation:** `assistant/storage.py` has placeholder `load_book`, `load_notes`, `save_book`, and `save_notes` functions. Loading currently creates empty collections and saving does nothing. The completed T15 and T11 models expose `to_dict()` / `from_dict()` serialization methods, but those methods do not themselves persist information to disk.
+On Windows, `~` represents the current user's home directory (for example, `C:\Users\<username>`); the exact directory is resolved by Python's `Path.home()`.
 
-**Planned T16 implementation:** create the data directory, save JSON through a temporary file followed by atomic replacement, preserve corrupted input as a `.bak` file, recover safely from missing or invalid files, and validate persistence between application restarts. Update this section and rerun storage acceptance tests when T16 merges.
+### Saving and restoring
+
+- **On startup:** `assistant.cli.main()` calls `load_book()` and `load_notes()`. If a file does not exist, the relevant collection starts empty.
+- **On exit:** `exit`, `close`, Ctrl+C, and EOF cause the CLI to save the current address book and notebook. Notes are still attempted if saving contacts fails.
+- **Atomic replacement:** `save_book()` and `save_notes()` create `~/.personal_assistant` if necessary, write UTF-8 JSON to a temporary `*.json.tmp` file, then replace the destination with `Path.replace()`. This protects the previous complete file from being partially overwritten if saving fails before replacement.
+- **Non-ASCII text:** JSON is written with `ensure_ascii=False` and supports Unicode names and note text. Loading also accepts UTF-8 files with a byte-order mark (`utf-8-sig`).
+- **Note IDs:** the next available note ID is stored in `notes.json`, so previously assigned IDs are not reused after restarting.
+
+### Handling invalid saved files
+
+If a JSON file is malformed or its structure or contents cannot be restored (for example, an invalid phone number, a missing name, or empty note text), the application **renames the damaged original** to a timestamped backup such as `contacts.20261124-191500.bak` or `notes.20261124-191500.bak` and initializes that collection as empty. The other collection can still load normally.
+
+Please inspect and preserve any `.bak` file before attempting manual recovery. The application does **not** automatically repair invalid records or merge a backup back into the working JSON. Only expected JSON/schema/validation errors trigger this recovery; unrelated programming and file-system errors are not silently ignored.
+
+**Limitations:** Changes made during a session are not saved until the session exits. An abrupt process termination can lose changes from that session; this mechanism is not a substitute for regular backups.
 
 ## Project architecture
 
@@ -185,7 +200,7 @@ The code follows a layered design: **CLI / UI → command handlers → domain mo
 | Note handlers | `assistant/note_handlers.py` | Convert CLI arguments into note operations; parse note IDs. |
 | Tag handlers (planned) | `assistant/tag_handlers.py` | T22: command-layer integration for tag operations. |
 | Domain models | `assistant/fields.py`, `assistant/record.py`, `assistant/address_book.py`, `assistant/notes.py`, `assistant/exceptions.py` | Enforce validation, contact and note business rules, search and serialization. |
-| Persistence (in progress) | `assistant/storage.py` | T16: implement JSON I/O and recovery. |
+| Persistence | `assistant/storage.py` | T16: load/save local JSON, use atomic replacement, preserve malformed data in timestamped `.bak` files. |
 | Verification | `tests/`, `.github/workflows/ci.yml` | pytest regression tests, Ruff lint/format checks, supported Python versions. |
 
 Each command handler accepts `(args: list[str], ctx: Context)` and returns text for the CLI to display, or raises an application-specific error. The `Context` holds the address book (`ctx.book`) and notebook (`ctx.notes`). `@command` registers handlers, `@input_error` normalizes certain argument errors, and `ui` owns text/color formatting.
@@ -207,7 +222,7 @@ python -m ruff format --check .
 python -m pytest
 ```
 
-The GitHub Actions workflow `.github/workflows/ci.yml` runs linting, formatting checks, and pytest on **Python 3.12 and 3.15** for PRs targeting `main` and pushes to `main`. The Python 3.12 job also verifies a regular (non-editable) `python -m pip install .`. Package smoke tests cover both launch commands from a working directory outside the repository.
+The GitHub Actions workflow `.github/workflows/ci.yml` runs linting, formatting checks, and pytest on **Python 3.12 and 3.15** for PRs targeting `main` and pushes to `main`. The Python 3.12 job also verifies a regular (non-editable) `python -m pip install .`. Package smoke tests cover both launch commands from a working directory outside the repository. **Current CI runs on Ubuntu, not Windows**; Windows subprocess/redirected-terminal support remains a separate task (T33), so a green Linux CI run does not verify that scenario.
 
 Tests are under `tests/test_*.py`. Storage-related tests must use pytest's `tmp_path` to avoid modifying a real user's home directory. The full team contribution workflow and Ruff conventions are documented in [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -231,9 +246,10 @@ Work is organized through the [Trello project board](https://trello.com/b/lYqKSQ
 | Python version error during installation | Verify with `python --version`; use Python 3.12 or newer. |
 | `Invalid phone ... Use 10 digits.` | Enter exactly ten ASCII digits without formatting characters. |
 | A contact name works in `search` but not `phone` | Exact contact lookups currently require the stored capitalization; use `all` to inspect names. |
-| Notes and contacts disappear after restarting | Expected until T16 persistence is implemented and merged. |
+| Notes or contacts appear missing after restarting | Verify that you exited normally and are using the same OS user account; check `~/.personal_assistant/contacts.json`, `notes.json`, and any timestamped `.bak` files. A damaged file is backed up and that collection restarts empty. |
 | Tag command is reported as unknown | Tag CLI handlers are pending under optional T22; use `help` for available commands. |
 | Delete command removes data immediately | Confirmation is still pending under U4; avoid destructive commands until that feature is merged. |
+| `NoConsoleScreenBufferError` on Windows when piping input/output or running packaging tests | T33 is tracking a non-interactive fallback. Until it is merged, use a normal interactive console and avoid relying on redirected execution. |
 
 ## Delivery
 
