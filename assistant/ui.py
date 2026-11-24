@@ -17,16 +17,6 @@ from assistant.commands import COMMANDS
 from assistant.notes import Note
 from assistant.record import Record
 
-# Used while COMMANDS is still empty (T18 not merged yet).
-# TODO(U1): remove after T18, then commands come only from COMMANDS.
-FALLBACK_COMMANDS = (
-    "add", "change", "remove-phone", "add-email", "add-address",
-    "add-birthday", "phone", "show-birthday", "all", "search", "delete",
-    "birthdays", "add-note", "edit-note", "delete-note", "all-notes",
-    "search-notes", "add-tag", "remove-tag", "search-tag", "sort-notes",
-    "help", "hello", "exit", "close",
-)  # fmt: skip
-
 # Colors (prompt_toolkit style strings).
 SUCCESS_STYLE = "ansigreen"
 ERROR_STYLE = "ansired"
@@ -73,8 +63,7 @@ def set_completion_source(get_names: Callable[[], Iterable[str]]) -> None:
 
 def _command_names() -> list[str]:
     """Names of all commands, sorted."""
-    names = COMMANDS.keys() if COMMANDS else FALLBACK_COMMANDS
-    return sorted(names)
+    return sorted(COMMANDS)
 
 
 def _word_index(text: str) -> int:

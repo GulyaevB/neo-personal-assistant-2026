@@ -69,12 +69,27 @@ class Record:
 
         Missing fields are None.
         """
-        raise NotImplementedError  # TODO(T15)
+        return {
+            "name": self.name.value,
+            "phones": [phone.value for phone in self.phones],
+            "email": self.email.value if self.email else None,
+            "address": self.address.value if self.address else None,
+            "birthday": str(self.birthday) if self.birthday else None,
+        }
 
     @classmethod
     def from_dict(cls, data: dict) -> "Record":
         """Opposite of to_dict."""
-        raise NotImplementedError  # TODO(T15)
+        record = cls(data["name"])
+        for phone in data.get("phones", []):
+            record.add_phone(phone)
+        if data.get("email") is not None:
+            record.set_email(data["email"])
+        if data.get("address") is not None:
+            record.set_address(data["address"])
+        if data.get("birthday") is not None:
+            record.set_birthday(data["birthday"])
+        return record
 
     def __str__(self) -> str:
         phones = "; ".join(p.value for p in self.phones) or "-"
