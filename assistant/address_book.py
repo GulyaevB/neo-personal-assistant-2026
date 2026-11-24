@@ -33,8 +33,7 @@ class AddressBook(UserDict):
 
     def delete(self, name: str) -> None:
         """Delete the contact or raise ContactNotFoundError."""
-        if name not in self.data:
-            raise ContactNotFoundError(name)
+        self.find(name)
         del self.data[name]
 
     def search(self, query: str) -> list[Record]:
@@ -80,9 +79,12 @@ class AddressBook(UserDict):
 
     def to_dict(self) -> dict:
         """Convert for JSON: {"contacts": [record, ...]}."""
-        raise NotImplementedError  # TODO(T15)
+        return {"contacts": [record.to_dict() for record in self.data.values()]}
 
     @classmethod
     def from_dict(cls, data: dict) -> "AddressBook":
         """Opposite of to_dict."""
-        raise NotImplementedError  # TODO(T15)
+        book = cls()
+        for item in data.get("contacts", []):
+            book.add_record(Record.from_dict(item))
+        return book
