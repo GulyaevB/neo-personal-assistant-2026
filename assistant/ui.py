@@ -172,8 +172,17 @@ def error(text: str) -> None:
 
 
 def confirm(question: str) -> bool:
-    """Ask y/n (U4)."""
-    return input(f"{question} (y/n): ").strip().lower() == "y"
+    """Ask y/n before a destructive action (U4).
+
+    Only "y" (any case, spaces ignored) means yes. Empty input, "n",
+    anything else, Ctrl+C or Ctrl+D mean no, so nothing is deleted by mistake.
+    """
+    try:
+        answer = input(f"{question} (y/n): ")
+    except (KeyboardInterrupt, EOFError):
+        print()  # move to a new line after ^C / ^D
+        return False
+    return answer.strip().lower() == "y"
 
 
 def suggest(word: str, commands: list[str]) -> list[str]:
