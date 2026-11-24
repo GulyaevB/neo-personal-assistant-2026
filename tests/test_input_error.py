@@ -82,13 +82,12 @@ def _run_cli(monkeypatch, handler, user_commands):
     return errors, messages, goodbyes, saved
 
 
-@pytest.mark.parametrize("decorated", [True, False])
-def test_cli_handles_missing_arguments_and_keeps_running(monkeypatch, decorated):
+def test_cli_handles_missing_arguments_and_keeps_running(monkeypatch):
     def missing_argument(args, ctx):
         """demo <name>: require a name."""
         return args[0]
 
-    handler = input_error(missing_argument) if decorated else missing_argument
+    handler = input_error(missing_argument)
     errors, messages, goodbyes, saved = _run_cli(
         monkeypatch, handler, iter(["demo", "demo", "exit"])
     )
@@ -97,6 +96,17 @@ def test_cli_handles_missing_arguments_and_keeps_running(monkeypatch, decorated)
     assert all(MISSING_ARGUMENTS_MESSAGE not in msg for msg in messages)
     assert goodbyes == ["Goodbye!"]
     assert saved == ["book", "notes"]
+
+
+def test_undecorated_handler_bug_is_not_misreported(monkeypatch):
+    def missing_argument(args, ctx):
+        """demo <name>: require a name."""
+        return args[0]
+
+    # Without @input_error a programming mistake must not be silently
+    # presented as a normal user validation error. T32 owns this boundary.
+    with pytest.raises(IndexError):
+        _run_cli(monkeypatch, missing_argument, iter(["demo"]))
 
 
 def test_cli_shows_domain_error_in_error_channel(monkeypatch):
