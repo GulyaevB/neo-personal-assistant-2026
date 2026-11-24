@@ -13,7 +13,8 @@ dependencies = ["prompt_toolkit>=3.0"]
 [tool.setuptools.packages.find]
 include = ["assistant*"]
 
-# T26 adds the `assistant` command.
+[project.scripts]
+assistant = "assistant.cli:main"
 
 [tool.ruff]
 line-length = 88
