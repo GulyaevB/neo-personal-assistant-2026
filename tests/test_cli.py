@@ -1,5 +1,7 @@
 """Tests for the CLI parser and application lifecycle (T17)."""
 
+from pathlib import Path
+
 import pytest
 
 from assistant import cli
@@ -67,3 +69,28 @@ def test_autocomplete_uses_current_contacts(monkeypatch):
 
     assert len(captured) == 1
     assert list(captured[0]()) == []
+
+
+# A broken data file moved to .bak is reported once, old ones are not (T34).
+def test_main_reports_broken_data_file(monkeypatch):
+    errors = []
+    new = Path("contacts.20261124-120000.bak")
+
+    def load_broken_book():
+        cli.backups.append(new)
+        return AddressBook()
+
+    monkeypatch.setattr(cli, "backups", [Path("old.bak")])
+    monkeypatch.setattr(cli, "load_book", load_broken_book)
+    monkeypatch.setattr(cli, "load_notes", NoteBook)
+    monkeypatch.setattr(cli, "save_book", lambda value: None)
+    monkeypatch.setattr(cli, "save_notes", lambda value: None)
+    monkeypatch.setattr(cli.ui, "show", lambda message: None)
+    monkeypatch.setattr(cli.ui, "success", lambda message: None)
+    monkeypatch.setattr(cli.ui, "error", errors.append)
+    monkeypatch.setattr(cli.ui, "read_command", lambda: "exit")
+    monkeypatch.setattr(cli.ui, "set_completion_source", lambda source: None)
+
+    cli.main()
+
+    assert errors == [f"Data file was broken, starting empty. Old data is in: {new}"]
