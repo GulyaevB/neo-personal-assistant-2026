@@ -98,15 +98,23 @@ def test_cli_handles_missing_arguments_and_keeps_running(monkeypatch):
     assert saved == ["book", "notes"]
 
 
-def test_undecorated_handler_bug_is_not_misreported(monkeypatch):
+def test_undecorated_handler_bug_is_not_misreported(monkeypatch, tmp_path):
     def missing_argument(args, ctx):
         """demo <name>: require a name."""
         return args[0]
 
     # Without @input_error a programming mistake must not be silently
-    # presented as a normal user validation error. T32 owns this boundary.
-    with pytest.raises(IndexError):
-        _run_cli(monkeypatch, missing_argument, iter(["demo"]))
+    # presented as a normal user validation error. T32 owns this boundary:
+    # it is reported as an unexpected error and the CLI keeps running.
+    monkeypatch.setattr(cli, "LOG_FILE", tmp_path / "assistant.log")
+    errors, messages, goodbyes, saved = _run_cli(
+        monkeypatch, missing_argument, iter(["demo", "exit"])
+    )
+
+    assert errors == [cli.unexpected_error_message("demo")]
+    assert MISSING_ARGUMENTS_MESSAGE not in errors
+    assert goodbyes == ["Goodbye!"]
+    assert saved == ["book", "notes"]
 
 
 def test_cli_shows_domain_error_in_error_channel(monkeypatch):
