@@ -7,241 +7,381 @@ Sources:
 
 - Neoversity technical task ("ТЗ Персональний помічник"): 8 requirements + bonus checklist
 - Neoversity acceptance criteria ("TECH-Критерії прийняття проєкту"): 14 general + 2 bonus criteria
-- Team project plan and agreements in `CONTRIBUTING.md`
-
-## How to run
-
-1. Fresh clone of `main`, new virtual environment:
-
-   ```bash
-   git clone https://github.com/GulyaevB/neo-personal-assistant-2026.git
-   cd neo-personal-assistant-2026
-   python3 -m venv .venv && source .venv/bin/activate
-   pip install .
-   ```
-
-   On Windows activate with `.venv\Scripts\activate` instead of `source ...`.
-
-2. Back up and remove existing data so the run starts clean:
-
-   ```bash
-   mv ~/.personal_assistant ~/.personal_assistant.backup 2>/dev/null
-   ```
-
-3. Birthday checks depend on the run date. For a run on **27 Nov 2026** (Friday)
-   use: `add-birthday John 30.11.1990` (in 3 days, C24) and
-   `add-birthday Anna 28.11.1990` (Saturday, C26). C25 and C27 can't be
-   reproduced by hand on that date; they are covered by unit tests in
-   `tests/test_birthdays.py`, so check that those tests pass.
-4. Capture evidence: record the commit (`git log --oneline -1`) and the latest
-   `main` CI run, and save a screenshot of the terminal for every ❌ and ⚠️
-   (and for key ✅ checks: E2, E6, F7). Attach them to the T28 card.
-5. Go through every check below. Expected messages are copied from the app
-   (`main`, 25 Nov); if a message changes later, the meaning must stay the same.
-6. Mark each row: ✅ pass, ❌ fail, ⚠️ known issue / note.
-7. For every ❌ create a Trello card `BUG: <short title>` with: steps,
-   expected result, actual result, check ID. Link the card in the
-   "Defect" column.
-8. Restore your data afterwards:
-
-   ```bash
-   rm -rf ~/.personal_assistant
-   mv ~/.personal_assistant.backup ~/.personal_assistant
-   ```
-
-9. Retest: when #34 (strict email + recovery policy) or README PR #28 is merged
-   after the run, retest C7, E10 and A2/A3 on the new commit and update their
-   status. Rows stay open until checked on a real run; green CI alone is not
-   acceptance.
+- Lead's T28 gates from the Trello card and team agreements in `CONTRIBUTING.md`
 
 Source codes: **TZ-n** = technical task requirement n, **TZ-B** = bonus checklist,
 **AC-n** = acceptance criterion n, **AC-Bn** = bonus acceptance criterion n,
-**PL** = team plan.
+**PL** = team plan / Lead's gate.
+
+## Statuses
+
+| Mark | Meaning |
+|------|---------|
+| ⬜ Not run | Not checked yet (default) |
+| ✅ Pass | Result matches "Expected" |
+| ❌ Fail | Result differs or the app crashes: create a Trello `BUG:` card |
+| ⚠️ Known issue | Current behaviour is documented in "Known issues"; the decision is not final |
+| ⛔ Blocked | Can't be checked yet: a dependency is not merged (e.g. #34, #28) |
+| ⏭ Deferred | Agreed with the Lead to check or fix after submission |
+
+Every row that is not ⬜ needs evidence in the last column: a screenshot name,
+a link to the T28 card attachment, a CI run link or a `BUG:` card. Green CI
+alone is not acceptance: a row is ✅ only after it was checked on a real run.
+
+## How to run
+
+### 1. Isolated environment (your real data is never touched)
+
+The app keeps data in the user's home folder (`~/.personal_assistant`).
+For the run, the home folder of **this terminal only** points to a new empty
+temporary folder. Nothing is moved or deleted in your real home folder, so no
+backup and no restore are needed.
+
+**macOS / Linux (zsh or bash):**
+
+```bash
+git clone https://github.com/GulyaevB/neo-personal-assistant-2026.git acceptance-run
+cd acceptance-run
+python3 -m venv .venv
+source .venv/bin/activate
+pip install .
+
+export ACCEPTANCE_RUN="$(mktemp -d)"
+section() { export HOME="$ACCEPTANCE_RUN/$1"; mkdir -p "$HOME"; echo "HOME=$HOME"; }
+section A
+python -c "from assistant.storage import DATA_DIR; print(DATA_DIR)"
+```
+
+**Windows (PowerShell):**
+
+```powershell
+git clone https://github.com/GulyaevB/neo-personal-assistant-2026.git acceptance-run
+cd acceptance-run
+py -3 -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install .
+
+$env:ACCEPTANCE_RUN = Join-Path $env:TEMP "pa-acceptance-$(Get-Date -Format yyyyMMdd-HHmmss)"
+function section($name) { $env:USERPROFILE = Join-Path $env:ACCEPTANCE_RUN $name; New-Item -ItemType Directory -Force $env:USERPROFILE | Out-Null; "USERPROFILE=$env:USERPROFILE" }
+section A
+python -c "from assistant.storage import DATA_DIR; print(DATA_DIR)"
+```
+
+If `Activate.ps1` is blocked, run `Set-ExecutionPolicy -Scope Process RemoteSigned`
+first (only for this PowerShell window).
+
+**Safety check before every section:** the last command must print a path
+**inside the temporary folder** (`.../A/.personal_assistant`). If it prints
+your real home folder, stop: the variable was not set in this terminal.
+
+Use only this terminal for the run. Other terminals and your normal use of
+the app keep working with your real data.
+
+### 2. One fresh data folder per section
+
+Each section starts with `section <letter>` (e.g. `section C`) and the safety
+check. This gives the section its own empty data folder, so the sections don't
+depend on each other. Inside a section, run the rows **in the order shown**:
+later rows use the data created by earlier rows of the same section.
+
+### 3. Birthday dates
+
+The birthday rows are written for a run on **Friday 27 Nov 2026**:
+John `30.11.1990` (Monday, in 3 days), Anna `28.11.1990` (Saturday).
+On another day, use a date 3 days after the run for John and the next
+Saturday within 7 days for Anna, and update "Expected" accordingly.
+
+### 4. Evidence
+
+- Write down the commit (`git log --oneline -1`) and the link to the latest
+  `main` CI run at the end of this file.
+- Take a screenshot for every ❌, ⚠️, ⛔ row and for E2, E6, F10.
+  Attach them to the T28 card and put the file name in the last column.
+
+### 5. Bugs
+
+For every ❌ create a Trello card `BUG: <short title>` with: check ID, commit,
+steps, expected result, actual result, screenshot, owner of the module.
+Put the card name in the last column and post it in Slack.
+
+### 6. Retest
+
+When #34 (strict email + legacy-data recovery policy) or README PR #28 is
+merged after the run, retest the affected rows (A2, A3, C7, E8–E12) on the new
+commit and update their status and evidence.
+
+### 7. Clean up
+
+Close the terminal. Optionally delete the temporary folder:
+`rm -rf "$ACCEPTANCE_RUN"` (macOS/Linux) or
+`Remove-Item -Recurse -Force $env:ACCEPTANCE_RUN` (PowerShell).
+This removes only the test data of the run.
 
 ## A. Repository, documentation, installation
 
-| ID | Check | Expected | Source | Task | Status | Defect |
-|----|-------|----------|--------|------|--------|--------|
-| A1 | Open the GitHub repo without logging in | Repo is public | AC-1 | T01 | | |
-| A2 | Read `README.md` only and install the app | Install and run steps work as written (README PR #28 merged) | AC-2 | T27 | | |
-| A3 | README lists every command with an example | All 25 commands from `help` are documented | AC-2, PL | T27 | | |
-| A4 | `pip install .` in a clean venv | Installs without errors, pulls `prompt_toolkit` | PL | T26 | | |
-| A5 | From another folder (e.g. `cd ~`) run `assistant`, then `python -m assistant` | Both entry points start the app | PL | T26 | | |
-| A6 | Public classes and functions have docstrings | Spot check models, handlers, cli | AC-2 | all | | |
-| A7 | Windows: install and run `assistant` in PowerShell | Starts, colors and Tab work | PL | T33 | | |
+Setup: `section A`.
+
+| ID | Check | Expected | Source | Task | Status | Evidence / Defect |
+|----|-------|----------|--------|------|--------|-------------------|
+| A1 | Open the GitHub repo in a private browser window | Repo is public | AC-1 | T01 | ⬜ | |
+| A2 | Follow only `README.md` to install and start the app | Install and run steps work as written (README PR #28 merged) | AC-2 | T27 | ⬜ | |
+| A3 | Compare README with `help` | All 25 commands from `help` are documented with an example | AC-2, PL | T27 | ⬜ | |
+| A4 | `pip install .` in a clean venv | Installs without errors, pulls `prompt_toolkit` | PL | T26 | ⬜ | |
+| A5 | From another folder (`cd ~`) run `assistant`, `exit`, then `python -m assistant`, `exit` | Both entry points start the app and say `Goodbye!` | PL | T26 | ⬜ | |
+| A6 | Public classes and functions have docstrings | Spot check models, handlers, cli | AC-2 | all | ⬜ | |
+| A7 | Windows: steps from "How to run" in PowerShell, then `assistant` | Starts, colors and Tab work | PL | T33 | ⬜ | |
 
 ## B. CLI loop and usability
 
-| ID | Check | Expected | Source | Task | Status | Defect |
-|----|-------|----------|--------|------|--------|--------|
-| B1 | Start the app | `Personal Assistant is running. Type 'exit' to quit.` shown **once** | AC-6 | T17 | | |
-| B2 | Run 3 commands in a row | Greeting is **not** repeated after each command | AC-6 | T17 | | |
-| B3 | `help` | `Available commands:` + 25 commands with a short description | AC-6, PL | T18 | | |
-| B4 | Press Enter on empty input | Nothing happens, prompt is shown again | AC-10 | T17 | | |
-| B5 | Unknown command `xyz` | `Unknown command 'xyz'.`, app keeps running | AC-10 | T17 | | |
-| B6 | `add` without arguments | `Missing arguments. Use: add <name> <phone>`, no traceback | AC-10 | T23 | | |
-| B7 | `bi` + Tab | Completes to `birthdays` | AC-6 | U1 | | |
-| B8 | `phone J` + Tab (contact John exists) | Completes to `phone John` | AC-6 | U1 | | |
-| B9 | Success / error output | Success green, errors red, commands and tags highlighted | AC-6 | U2 | | |
-| B10 | `exit` and `close` | `Goodbye!`, app stops | AC-7 | T17 | | |
-| B11 | Ctrl+C and Ctrl+D at the prompt | App stops without traceback | AC-9 | T17 | | |
-| B12 | Run without a console: `printf 'help\nexit\n' \| assistant` (macOS/Linux) or `assistant < commands.txt` (Windows) | Works with plain input/output, no `NoConsoleScreenBufferError` | AC-9 | T33 | | |
+Setup: `section B`, start `assistant`. Before B8 run `add John 0501234567`.
+
+| ID | Check | Expected | Source | Task | Status | Evidence / Defect |
+|----|-------|----------|--------|------|--------|-------------------|
+| B1 | Start the app | `Personal Assistant is running. Type 'exit' to quit.` shown **once** | AC-6 | T17 | ⬜ | |
+| B2 | Run 3 commands in a row (`help`, `all`, `all-notes`) | Greeting is **not** repeated after each command | AC-6 | T17 | ⬜ | |
+| B3 | `help` | `Available commands:` + 25 commands with a short description | AC-6, PL | T18 | ⬜ | |
+| B4 | Press Enter on empty input | Nothing happens, prompt is shown again | AC-10 | T17 | ⬜ | |
+| B5 | `xyz` | `Unknown command 'xyz'.`, app keeps running | AC-10 | T17 | ⬜ | |
+| B6 | `add` without arguments | `Missing arguments. Use: add <name> <phone>`, no traceback | AC-10 | T23 | ⬜ | |
+| B7 | `bi` + Tab | Completes to `birthdays` | AC-6 | U1 | ⬜ | |
+| B8 | `phone J` + Tab | Completes to `phone John` | AC-6 | U1 | ⬜ | |
+| B9 | Look at B5, B6, B8 output | Success green, errors red, commands and tags highlighted | AC-6 | U2 | ⬜ | |
+| B10 | `exit`; start again, `close` | `Goodbye!`, app stops (both commands) | AC-7 | T17 | ⬜ | |
+| B11 | Start, press Ctrl+C; start, press Ctrl+D | App stops without traceback | AC-9 | T17 | ⬜ | |
+| B12 | Without a console. macOS/Linux: `printf 'help\nexit\n' \| assistant`. PowerShell: `"help","exit" \| assistant`. cmd.exe: `assistant < commands.txt` | Help and `Goodbye!` printed, no `NoConsoleScreenBufferError`, no traceback | AC-9 | T33 | ⬜ | |
 
 ## C. Contacts
 
-| ID | Check | Expected | Source | Task | Status | Defect |
-|----|-------|----------|--------|------|--------|--------|
-| C1 | `add John 0501234567` | `Contact 'John' added.` | TZ-1 | T19 | | |
-| C2 | `add john 0671112233` (other case) | `Phone added to 'John'.`, still **one** contact | TZ-1 | T35 | | |
-| C2a | `add John 0501234567` again (same phone) | `Contact 'John' already has phone '0501234567'.` | AC-12 | T35 | | |
-| C3 | `add Anna 123` | `Invalid phone '123'. Use 10 digits.` | TZ-3, AC-12 | T05, T19 | | |
-| C4 | `add 123 0501234567` | `Invalid name '123'. Use at least one letter.` | AC-12 | T34 | | |
-| C5 | `add-email John john@mail.com` | `Email set for 'John'.` | TZ-1 | T06, T19 | | |
-| C6 | `add-email John john@mail` | `Invalid email 'john@mail'. Use name@domain.com.`, contact unchanged | TZ-3, AC-12 | T06 | | |
-| C7 | `add-email John a..b@c.com` | Rejected as invalid (after #34 is merged) | AC-12 | T34 | | |
-| C8 | `add-address John Kyiv, Khreshchatyk 1` | Multi-word address saved | TZ-1 | T06, T19 | | |
-| C9 | `add-birthday John 15.05.1990` | Birthday saved | TZ-1 | T07, T19 | | |
-| C10 | `add-birthday John 31.02.1990` / `1990-05-15` | `Invalid date '...'. Use DD.MM.YYYY.` | AC-12 | T05, T07 | | |
-| C11 | `add-birthday John 01.01.2090` | `Birthday '01.01.2090' is in the future.` | AC-12, PL | T07 | | |
-| C12 | `add-birthday John 01.01.1899` | `Birthday '01.01.1899' is too old. Use 1900 or later.` | AC-12 | T34 | | |
-| C13 | `phone john`, `show-birthday JOHN` (other case) | John's phones / birthday are shown | TZ-1 | T34 | | |
-| C14 | `all` | All contacts with all fields | TZ-1 | T19 | | |
-| C15 | `search john` (other case) | John is found | TZ-4 | T09, T20 | | |
-| C16 | `search 050123`, `search mail.com`, `search Kyiv` | Search by phone, email, address works | TZ-4 | T09 | | |
-| C17 | `search jhon` (typo) | John is found (fuzzy) | TZ-4, PL | T09 | | |
-| C18 | `change John 0501234567 0509998877` | Phone replaced | TZ-5 | T19 | | |
-| C19 | `change John 1111111111 0509998877` | `Contact 'John' has no phone '1111111111'.` | TZ-5, AC-10 | T05 | | |
-| C20 | `remove-phone John 0671112233` | Phone removed | TZ-5 | T07, T19 | | |
-| C21 | `delete John` → `n` (also Enter, Ctrl+C) | `Deletion cancelled.`, contact kept | TZ-5 | U4 | | |
-| C22 | `delete John` → `y` | `Contact 'John' deleted.`, `phone John` → `Contact 'John' not found.` | TZ-5 | T08, U4 | | |
-| C23 | `delete Nobody` | `Contact 'Nobody' not found.` | AC-10 | T08 | | |
-| C24 | `birthdays 7` with a birthday in 3 days (`30.11.1990` on 27 Nov) | `Birthdays in the next 7 days:` + `30.11.2026 (Mon)  John` | TZ-2 | T10, T20 | | |
-| C25 | `birthdays 10` on 25 Dec with a birthday on 2 Jan | Listed (year boundary). Unit test `test_january_birthdays_on_25_december` | TZ-2, PL | T10 | | |
-| C26 | Birthday on a weekend (`28.11.1990`, Saturday) | `28.11.2026 (Sat)  Anna`: the **real** date, no shift to Monday (team decision in T10) | PL | T10 | | |
-| C27 | Birthday on 29 Feb, non-leap year | Shown on 28 Feb, no error. Unit test `test_leap_day_birthday` | PL | T10 | | |
-| C28 | `birthdays` (no argument) | Default 7 days | PL | T20 | | |
-| C29 | `birthdays abc`, `birthdays 0` | `Invalid days 'abc'. Use a positive number.` | AC-10, PL | T20 | | |
+Setup: `section C`, start `assistant`, run the rows in this order without restarting.
+
+| ID | Check | Expected | Source | Task | Status | Evidence / Defect |
+|----|-------|----------|--------|------|--------|-------------------|
+| C1 | `add John 0501234567` | `Contact 'John' added.` | TZ-1 | T19 | ⬜ | |
+| C2 | `add john 0671112233`, then `all` | `Phone added to 'John'.`; `all` shows **one** John with `0501234567; 0671112233` | TZ-1 | T35 | ⬜ | |
+| C3 | `add John 0501234567` (same phone) | `Contact 'John' already has phone '0501234567'.` | AC-12 | T35 | ⬜ | |
+| C4 | `add Anna 123` | `Invalid phone '123'. Use 10 digits.` (Anna is not created) | TZ-3, AC-12 | T05, T19 | ⬜ | |
+| C5 | `add 123 0501234567` | `Invalid name '123'. Use at least one letter.` | AC-12 | T34 | ⬜ | |
+| C6 | `add-email John john@mail.com` | `Email set for 'John'.` | TZ-1 | T06, T19 | ⬜ | |
+| C7 | `add-email John john@mail` and `add-email John a..b@c.com` | `Invalid email 'john@mail'. Use name@domain.com.`; `a..b@c.com` rejected after #34 (today it is accepted: ⛔ until #34) | TZ-3, AC-12 | T06, T34 | ⬜ | |
+| C8 | `add-address John Kyiv, Khreshchatyk 1` | `Address set for 'John'.` | TZ-1 | T06, T19 | ⬜ | |
+| C9 | `add-birthday John 30.11.1990` | `Birthday set for 'John'.` | TZ-1 | T07, T19 | ⬜ | |
+| C10 | `add-birthday John 31.02.1990`, `add-birthday John 1990-05-15` | `Invalid date '...'. Use DD.MM.YYYY.` | AC-12 | T05, T07 | ⬜ | |
+| C11 | `add-birthday John 01.01.2090` | `Birthday '01.01.2090' is in the future.` | AC-12, PL | T07 | ⬜ | |
+| C12 | `add-birthday John 01.01.1899` | `Birthday '01.01.1899' is too old. Use 1900 or later.` | AC-12 | T34 | ⬜ | |
+| C13 | `phone john`, `show-birthday JOHN` | `John: 0501234567; 0671112233`, `John: 30.11.1990` (C10–C12 did not change it) | TZ-1 | T34 | ⬜ | |
+| C14 | `add Anna 0931112233`, `add-birthday Anna 28.11.1990`, `all` | Anna and John with all their fields | TZ-1 | T19 | ⬜ | |
+| C15 | `search john` | John is found | TZ-4 | T09, T20 | ⬜ | |
+| C16 | `search 050123`, `search mail.com`, `search Kyiv` | John is found each time | TZ-4 | T09 | ⬜ | |
+| C17 | `search jhon` (typo) | John is found (fuzzy) | TZ-4, PL | T09 | ⬜ | |
+| C18 | `birthdays 7` | `Birthdays in the next 7 days:`, `28.11.2026 (Sat)  Anna`, `30.11.2026 (Mon)  John` | TZ-2 | T10, T20 | ⬜ | |
+| C19 | Anna's line in C18 | Real date on Saturday, no shift to Monday (team decision in T10) | PL | T10 | ⬜ | |
+| C20 | `birthdays` (no argument) | Same list as C18 (default 7 days) | PL | T20 | ⬜ | |
+| C21 | `birthdays abc`, `birthdays 0` | `Invalid days 'abc'. Use a positive number.` / `Invalid days '0'. ...` | AC-10, PL | T20 | ⬜ | |
+| C22 | Year boundary (25 Dec → 2 Jan) and 29 Feb in a non-leap year | Can't be reproduced by hand on 27 Nov: `pytest tests/test_birthdays.py -v` passes `test_january_birthdays_on_25_december` and `test_leap_day_birthday` | TZ-2, PL | T10 | ⬜ | |
+| C23 | `change John 0501234567 0509998877` | `Phone updated for 'John'.` | TZ-5 | T19 | ⬜ | |
+| C24 | `change John 1111111111 0509998877` | `Contact 'John' has no phone '1111111111'.` | TZ-5, AC-10 | T05 | ⬜ | |
+| C25 | `remove-phone John 0671112233`, `phone John` | `Phone removed from 'John'.`, `John: 0509998877` | TZ-5 | T07, T19 | ⬜ | |
+| C26 | `delete John` → `n`; repeat with Enter and with Ctrl+C | `Deletion cancelled.`, `phone John` still works | TZ-5 | U4 | ⬜ | |
+| C27 | `delete John` → `y`, then `phone John` | `Contact 'John' deleted.`, then `Contact 'John' not found.` | TZ-5 | T08, U4 | ⬜ | |
+| C28 | `delete Nobody` | `Contact 'Nobody' not found.` | AC-10 | T08 | ⬜ | |
 
 ## D. Notes
 
-| ID | Check | Expected | Source | Task | Status | Defect |
-|----|-------|----------|--------|------|--------|--------|
-| D1 | `add-note Buy a gift for Anna` | `Note 1 added.`, full multi-word text saved | TZ-6 | T11, T21 | | |
-| D2 | `add-note` with empty text | `Missing arguments. Use: add-note <text>`, nothing saved | AC-12 | T11, T21 | | |
-| D3 | `all-notes` | All notes with id, text, tags | TZ-6 | T21 | | |
-| D4 | `search-notes GIFT` | Case-insensitive, finds part of a word | TZ-7 | T12, T21 | | |
-| D5 | `search-notes python` (no matches) | `No notes found for 'python'.` (not an error) | TZ-7 | T12, T21 | | |
-| D6 | `edit-note 1 Buy flowers` | Text changed, tags kept | TZ-8 | T11, T21 | | |
-| D7 | `edit-note 1` without text | `Missing arguments. Use: edit-note <id> <text>`, old text kept | AC-10 | T11, T21 | | |
-| D8 | `edit-note 99 text`, `delete-note 99` | `Note with id 99 not found.` | AC-10 | T11 | | |
-| D9 | `edit-note abc text` | `Invalid note id 'abc'. Use a number.` | AC-10, PL | T21 | | |
-| D10 | `delete-note 1` → `n`, then → `y` | `Deletion cancelled.` on `n`, deleted on `y` | TZ-8 | T21, U4 | | |
-| D11 | Add a note after deleting the last one | New id is not reused (e.g. 4, not 3) | PL | T11 | | |
-| D12 | Cyrillic: `add-note Купити молоко` | Saved and shown correctly | PL | T25 | | |
+Setup: `section D`, start `assistant`, run the rows in this order.
 
-## E. Persistence
+| ID | Check | Expected | Source | Task | Status | Evidence / Defect |
+|----|-------|----------|--------|------|--------|-------------------|
+| D1 | `add-note Buy a gift for Anna`, `add-note Call the dentist`, `add-note Купити молоко` | `Note 1 added.`, `Note 2 added.`, `Note 3 added.` | TZ-6 | T11, T21 | ⬜ | |
+| D2 | `add-note` | `Missing arguments. Use: add-note <text>`, nothing saved | AC-12 | T11, T21 | ⬜ | |
+| D3 | `all-notes` | `1: Buy a gift for Anna`, `2: Call the dentist`, `3: Купити молоко` (Cyrillic shown correctly) | TZ-6 | T21, T25 | ⬜ | |
+| D4 | `search-notes GIFT` | `1: Buy a gift for Anna` (any case, part of a word) | TZ-7 | T12, T21 | ⬜ | |
+| D5 | `search-notes python` | `No notes found for 'python'.` (not an error) | TZ-7 | T12, T21 | ⬜ | |
+| D6 | `edit-note 1 Buy flowers` | `Note 1 updated.` | TZ-8 | T11, T21 | ⬜ | |
+| D7 | `edit-note 1` | `Missing arguments. Use: edit-note <id> <text>`, text stays `Buy flowers` | AC-10 | T11, T21 | ⬜ | |
+| D8 | `edit-note 99 text`, `delete-note 99` | `Note with id 99 not found.` | AC-10 | T11 | ⬜ | |
+| D9 | `edit-note abc text` | `Invalid note id 'abc'. Use a number.` | AC-10, PL | T21 | ⬜ | |
+| D10 | `delete-note 3` → `n`, then `delete-note 3` → `y` | `Delete note 3: Купити молоко? (y/n)`; `Deletion cancelled.`; then `Note 3 deleted.` | TZ-8 | T21, U4 | ⬜ | |
+| D11 | `add-note New note`, `all-notes` | `Note 4 added.` (id 3 is not reused); list 1, 2, 4 | PL | T11 | ⬜ | |
 
-| ID | Check | Expected | Source | Task | Status | Defect |
-|----|-------|----------|--------|------|--------|--------|
-| E1 | First start without `~/.personal_assistant` | App starts with empty data, folder is created on exit | TZ-data, PL | T16 | | |
-| E2 | Add contacts and notes, `exit`, start again | All contacts and notes are there | TZ-data, AC-8 | T16, T17 | | |
-| E3 | Same as E2 but stop with Ctrl+C | Data is saved | AC-8, PL | T17 | | |
-| E4 | After restart, add a note | Id continues (`next_id` kept) | PL | T11, T16 | | |
-| E5 | Open `~/.personal_assistant/contacts.json`, `notes.json` | Readable JSON, Cyrillic stored as letters (not `\u0406` escapes) | TZ-data | T16, T25 | | |
-| E6 | Break `notes.json` by hand (`echo "{not json" > ~/.personal_assistant/notes.json`), start | `Data file was broken, starting empty. Old data is in: .../notes.<date>-<time>.bak`, app keeps running | AC-9, PL | T16, T34 | | |
-| E7 | After E6, `exit` | New valid `notes.json` written, `.bak` kept | PL | T16 | | |
-| E8 | Old `contacts.json` with `John` and `john` as two contacts (see Known issues) | Whole file moved to `.bak`, app starts with empty contacts and shows the message | PL | T34 | | ⚠️ known issue |
-| E9 | Old `contacts.json` where **one** contact breaks a new rule (name `123`, birthday `01.01.1899`, phone `123`) next to a valid contact `Bob` | Today: whole file → `.bak`, Bob is not visible either (see KI-2). Expected after the recovery policy is agreed: valid contacts load | PL | T34 | | ⚠️ known issue |
-| E10 | Old `contacts.json` with email `a..b@c.com` (valid before #34) | Today: loads. After #34: the contact is **not lost** and the original data is kept, as agreed in #34 | PL | T34 | | |
+## E. Persistence and old data
+
+### E1–E7: saving and loading
+
+Setup: `section E`. Check that `.personal_assistant` does not exist yet
+(`ls -a ~` / `Get-ChildItem -Force ~`).
+
+| ID | Check | Expected | Source | Task | Status | Evidence / Defect |
+|----|-------|----------|--------|------|--------|-------------------|
+| E1 | Start the app, `exit` | Starts with empty data; after exit `~/.personal_assistant` has `contacts.json` and `notes.json` | TZ-data, PL | T16 | ⬜ | |
+| E2 | Start, `add John 0501234567`, `add-note Купити молоко`, `exit`; start again, `all`, `all-notes` | John and `1: Купити молоко` are there | TZ-data, AC-8 | T16, T17 | ⬜ | |
+| E3 | `add Anna 0931112233`, then Ctrl+C; start again, `phone Anna` | `Anna: 0931112233` (saved on Ctrl+C) | AC-8, PL | T17 | ⬜ | |
+| E4 | `add-note Second` | `Note 2 added.` (`next_id` kept after restart) | PL | T11, T16 | ⬜ | |
+| E5 | `exit`; open `contacts.json` and `notes.json` in a text editor | Readable JSON, Cyrillic stored as letters (not `І` escapes) | TZ-data | T16, T25 | ⬜ | |
+| E6 | Break notes by hand: `echo "{not json" > ~/.personal_assistant/notes.json` (PowerShell: `Set-Content ~/.personal_assistant/notes.json "{not json"`), start, `all`, `all-notes` | `Data file was broken, starting empty. Old data is in: .../notes.<date>-<time>.bak`; contacts still load; `No notes yet. ...` | AC-9, PL | T16, T34 | ⬜ | |
+| E7 | `exit`, list the folder | New valid `notes.json` (empty list), the `.bak` file with `{not json` is kept | PL | T16 | ⬜ | |
+
+### E8–E12: old data files (legacy)
+
+The final recovery policy for old data is **open** and decided in PR #34.
+These rows record the **current verified behaviour** (checked on `main` 26c5eb5)
+and, separately, what to check after #34. Until #34 is merged, mark E8–E10
+as ⚠️ (current behaviour confirmed) and their "after #34" part as ⛔.
+
+Setup for each row: `section E8`, `section E9a`, ... (a new empty folder each time),
+create `~/.personal_assistant/contacts.json` with the fixture from the appendix,
+start the app, `all`, `exit`, then list the folder.
+
+| ID | Fixture | Current behaviour (verified) | After #34 (to check) | Source | Task | Status | Evidence / Defect |
+|----|---------|------------------------------|----------------------|--------|------|--------|-------------------|
+| E8 | `John` and `john` as two contacts (created before T34/T35) | Whole file moved to `contacts.<date>-<time>.bak`, message shown, app starts with **no contacts**. Both contacts are unavailable until manual recovery (KI-1) | As agreed in #34 | PL | T34, T35 | ⬜ | |
+| E9a | Name `123` (valid before T34) next to valid `Bob` | Whole file → `.bak`, Bob is unavailable too (KI-2) | Valid contacts load, original file kept, as agreed in #34 | PL | T34 | ⬜ | |
+| E9b | Birthday `01.01.1899` (valid before T34) next to valid `Bob` | Whole file → `.bak`, Bob is unavailable too (KI-2) | Same as E9a | PL | T34 | ⬜ | |
+| E10 | Email `a..b@c.com` (valid before #34) next to valid `Bob` | Loads, both contacts shown | Contact is not lost, original data kept, as agreed in #34 | PL | T34 | ⬜ | |
+| E11 | Phone `123` next to valid `Bob` (this phone was **always** invalid, so this is a damaged file, not old data) | Whole file → `.bak`, message shown, app keeps running | No change expected | AC-9 | T16 | ⬜ | |
+| E12 | After any of E8–E11, `exit` | New `contacts.json` is written, the `.bak` file is kept unchanged | Same | PL | T16 | ⬜ | |
 
 ## F. Bonus: tags (10 points)
 
-| ID | Check | Expected | Source | Task | Status | Defect |
-|----|-------|----------|--------|------|--------|--------|
-| F1 | `add-tag 1 Shopping` | `Tag 'shopping' added to note 1.` | TZ-B, AC-B1 | T13, T22 | | |
-| F2 | `add-tag 1 shopping` again | `Note 1 already has tag 'shopping'.` | AC-B1 | T13, T22 | | |
-| F3 | `add-tag 1 #tag!` | `Invalid tag '#tag!'. Use one word: letters, digits, _ or -.` | AC-12 | T13 | | |
-| F4 | `remove-tag 1 shopping`, then again | `Tag 'shopping' removed from note 1.` / `Note 1 has no tag 'shopping'.` | AC-B1 | T13, T22 | | |
-| F5 | `search-tag SHOPPING` | Only notes with exactly this tag, any case | TZ-B, AC-B2 | T13, T22 | | |
-| F6 | `search-tag travel` (no matches) | `No notes with tag 'travel'.` | AC-B2 | T22 | | |
-| F7 | `sort-notes` | Notes sorted by tag A-Z, untagged at the end | TZ-B, AC-B2 | T14, T22 | | |
-| F8 | Restart after adding tags | Tags are kept | AC-8 | T16 | | |
+Setup: `section F`, start `assistant`, `add-note Buy milk`, `add-note Call boss`,
+`add-note Read book` (notes 1, 2, 3). Run the rows in this order.
+
+| ID | Check | Expected | Source | Task | Status | Evidence / Defect |
+|----|-------|----------|--------|------|--------|-------------------|
+| F1 | `add-tag 1 Shopping` | `Tag 'shopping' added to note 1.` | TZ-B, AC-B1 | T13, T22 | ⬜ | |
+| F2 | `add-tag 1 shopping` | `Note 1 already has tag 'shopping'.` | AC-B1 | T13, T22 | ⬜ | |
+| F3 | `add-tag 1 #tag!` | `Invalid tag '#tag!'. Use one word: letters, digits, _ or -.` | AC-12 | T13 | ⬜ | |
+| F4 | `add-tag 2 work` | `Tag 'work' added to note 2.` | AC-B1 | T13, T22 | ⬜ | |
+| F5 | `search-tag SHOPPING` | Only `1: Buy milk [shopping]` | TZ-B, AC-B2 | T13, T22 | ⬜ | |
+| F6 | `search-tag travel` | `No notes with tag 'travel'.` | AC-B2 | T22 | ⬜ | |
+| F7 | `sort-notes` | `1: Buy milk [shopping]`, `2: Call boss [work]`, `3: Read book` (untagged last) | TZ-B, AC-B2 | T14, T22 | ⬜ | |
+| F8 | `edit-note 1 Buy oat milk`, `all-notes` | `1: Buy oat milk [shopping]` (tags kept after edit) | TZ-8 | T11, T21 | ⬜ | |
+| F9 | `remove-tag 1 shopping`, then again | `Tag 'shopping' removed from note 1.` / `Note 1 has no tag 'shopping'.` | AC-B1 | T13, T22 | ⬜ | |
+| F10 | `exit`, start again, `all-notes` | `2: Call boss [work]` (tags kept after restart) | AC-8 | T16 | ⬜ | |
 
 ## G. Bonus: intelligent analysis
 
-| ID | Check | Expected | Source | Task | Status | Defect |
-|----|-------|----------|--------|------|--------|--------|
-| G1 | Typo `ad John 0501234567` | `Unknown command 'ad'. Did you mean: add?` | TZ-B | U3 | | |
-| G2 | Typo `birthdys 7` | Suggests `birthdays` first | TZ-B | U3 | | |
-| G3 | Nonsense `qwerty` | `Unknown command 'qwerty'.`, no wrong suggestion | TZ-B | U3 | | |
+Setup: `section G`, start `assistant`.
 
-## H. Code quality
+| ID | Check | Expected | Source | Task | Status | Evidence / Defect |
+|----|-------|----------|--------|------|--------|-------------------|
+| G1 | `ad John 0501234567` | `Unknown command 'ad'. Did you mean: add?` | TZ-B | U3 | ⬜ | |
+| G2 | `birthdys 7` | `Unknown command 'birthdys'. Did you mean: birthdays, ...?` (`birthdays` first) | TZ-B | U3 | ⬜ | |
+| G3 | `qwerty` | `Unknown command 'qwerty'.`, no wrong suggestion | TZ-B | U3 | ⬜ | |
 
-| ID | Check | Expected | Source | Task | Status | Defect |
-|----|-------|----------|--------|------|--------|--------|
-| H1 | CI on the last `main` commit | `lint-and-test (3.12)` and `(3.15)` green | AC-13 | T04 | | |
-| H2 | `ruff check .` and `ruff format --check .` locally | Clean | AC-13 | T03 | | |
-| H3 | `pytest` locally (macOS/Linux **and** Windows) | All tests pass | AC-9 | T24, T25, T33 | | |
-| H4 | OOP: `Field` → `Name`/`Phone`/`Email`/`Address`/`Birthday`; `AssistantError` → errors; `AddressBook`/`NoteBook` → `UserDict` | Inheritance used as planned | AC-11 | T02–T11 | | |
-| H5 | Composition: `Record` has fields, `AddressBook` has `Record`, `NoteBook` has `Note`, `Context` has both books | Composition used as planned | AC-11 | T02 | | |
-| H6 | Validation lives in field / model classes, not in handlers | Confirmed by code review | AC-12, PL | all | | |
-| H7 | No `TODO` / `NotImplementedError` left in `assistant/` | `grep -rnE "TODO\|NotImplementedError" assistant/` prints nothing | AC-3 | all | | |
-| H8 | Unexpected error inside a command (covered by tests in T32) | CLI keeps running; details go to `~/.personal_assistant/assistant.log` without personal data | AC-9 | T32 | | |
-| H9 | No traceback during the whole run A–G | Confirmed | AC-9 | all | | |
+## H. Code quality and diagnostics
 
-## I. Submission
+Run in the `acceptance-run` folder.
 
-| ID | Check | Expected | Source | Task | Status | Defect |
-|----|-------|----------|--------|------|--------|--------|
-| I1 | All Trello cards in Done (except T29, T30) | Confirmed | Team | Lead | | |
-| I2 | Mentor code review of the final version | Done before submission | AC-14 | Lead | | |
-| I3 | Zip of the repo + GitHub link uploaded to LMS by every member | Before 29 Nov, 17:00 Kyiv | Course | T30 | | |
+| ID | Check | Expected | Source | Task | Status | Evidence / Defect |
+|----|-------|----------|--------|------|--------|-------------------|
+| H1 | CI on the last `main` commit | `lint-and-test (3.12)` and `(3.15)` green (add the run link) | AC-13 | T04 | ⬜ | |
+| H2 | `pip install ruff pytest`, `ruff check .`, `ruff format --check .` | Clean | AC-13 | T03 | ⬜ | |
+| H3 | `pytest` on macOS/Linux **and** on Windows | All tests pass on both | AC-9 | T24, T25, T33 | ⬜ | |
+| H4 | OOP: `Field` → `Name`/`Phone`/`Email`/`Address`/`Birthday`; `AssistantError` → errors; `AddressBook`/`NoteBook` → `UserDict` | Inheritance used as planned | AC-11 | T02–T11 | ⬜ | |
+| H5 | Composition: `Record` has fields, `AddressBook` has `Record`, `NoteBook` has `Note`, `Context` has both books | Composition used as planned | AC-11 | T02 | ⬜ | |
+| H6 | Validation lives in field / model classes, not in handlers | Confirmed by code review | AC-12, PL | all | ⬜ | |
+| H7 | `grep -rnE "TODO\|NotImplementedError" assistant/` (PowerShell: `Select-String -Path assistant\*.py -Pattern "TODO\|NotImplementedError"`) | Prints nothing | AC-3 | all | ⬜ | |
+| H8 | Unexpected error inside a command: `pytest tests/test_cli_errors.py -v` | All pass, including: traceback goes to `assistant.log` (`test_traceback_is_written_to_log`); no exception messages or arguments in the log (`test_exception_messages_are_not_logged`, `test_arguments_are_not_logged`); log can't be opened, or writing / rotation fails → CLI keeps running, nothing is printed to the console and the message does **not** say details were saved (`test_log_cannot_be_opened`, `test_log_write_or_rollover_fails`); logging works again after a failure (`test_log_works_again_after_a_failed_write`) | AC-9 | T32 | ⬜ | |
+| H9 | Code review of `assistant/cli.py` | Log rotates: `RotatingFileHandler(maxBytes=1_000_000, backupCount=1)`; the log file is created only on the first unexpected error | PL | T32 | ⬜ | |
+| H10 | After sections A–G, list each section's data folder | No `assistant.log` after a normal run (no unexpected errors) | PL | T32 | ⬜ | |
+| H11 | Whole run A–G | No traceback in the console | AC-9 | all | ⬜ | |
 
-## Known issues / technical debt
+## I. Release gates for T28 sign-off
 
-### KI-1. Old data files with the same name in different case (E8)
+| ID | Check | Expected | Source | Task | Status | Evidence / Defect |
+|----|-------|----------|--------|------|--------|-------------------|
+| I1 | Trello board | All mandatory cards are Done, **except** T28 itself, downstream T29/T30 and optional T31 | Team | Lead | ⬜ | |
+| I2 | PRs #34 and #28 | Merged, retest from "How to run" step 6 done | PL | T34, T27 | ⬜ | |
+| I3 | Mentor code review of the final version | Done, comments handled or recorded | AC-14 | Lead | ⬜ | |
+| I4 | All ❌ rows | Fixed and retested, or moved to ⏭ Deferred with the Lead's decision recorded | PL | T28 | ⬜ | |
 
-- **What:** before T34/T35, `add John ...` and `add john ...` created two contacts.
-  Since T34/T35 names are compared without case, so `John` and `john` are one contact.
-- **Effect:** an old `contacts.json` that has both `John` and `john` can't be loaded
-  into one address book. Storage treats the whole file as broken: it is renamed to
-  `contacts.<date>-<time>.bak`, the app starts with empty contacts and shows
-  `Data file was broken, starting empty. Old data is in: ...`. No data is lost,
-  but it is not visible in the app.
-- **Who is affected:** only data created by development builds before 25 Nov
+T28 is Done only when I1–I4 are complete and the evidence is recorded.
+
+## J. After acceptance: delivery gates (not part of T28 sign-off)
+
+| ID | Check | Expected | Task | Status | Evidence |
+|----|-------|----------|------|--------|----------|
+| J1 | Demo | Demo of the accepted version on 28 Nov | T29 | ⬜ | |
+| J2 | LMS submission | Zip of the repo + GitHub link uploaded by every member before 29 Nov, 17:00 Kyiv | T30 | ⬜ | |
+
+## Known issues
+
+These describe the **current verified behaviour** on `main` 26c5eb5.
+The final decision is pending in PR #34; they are not accepted as final.
+
+### KI-1. Old file with the same name in different case (E8)
+
+- **Current behaviour:** before T34/T35 `add John ...` and `add john ...` created two
+  contacts; now names are compared without case. A `contacts.json` that has both
+  can't be loaded: the whole file is renamed to `contacts.<date>-<time>.bak`,
+  the app shows `Data file was broken, starting empty. Old data is in: ...` and
+  starts with **no contacts**.
+- **Impact:** the original file is kept as `.bak`, but **all** contacts from it are
+  unavailable in the app until someone recovers the file by hand. If the user keeps
+  working, new contacts go to a new `contacts.json`, and merging becomes harder.
+- **Who is affected:** data created by development builds before T34/T35
   (team members' local files). A clean install is not affected.
-- **Workaround:** open the `.bak` file, merge or rename the duplicate contact,
-  save it as `~/.personal_assistant/contacts.json`.
-- **Possible fix (after submission):** when loading, merge contacts whose names
-  differ only in case instead of moving the whole file to `.bak`.
-- **Decision:** documented, not fixed before submission (Lead, 25 Nov).
+- **Manual recovery today:** with the app closed, open the `.bak` file, merge or
+  rename the duplicate, save it as `~/.personal_assistant/contacts.json`.
+- **Proposed (not decided):** when loading, keep the valid contacts instead of
+  moving the whole file to `.bak`.
+- **Status:** open, recovery policy is decided in #34.
 
-### KI-2. One invalid old contact hides the whole address book (E9)
+### KI-2. One contact that breaks a new rule hides all contacts (E9a, E9b)
 
-- **What:** T34 added new rules (name needs a letter, birthday from 1900).
-  Old data created before these rules can break them.
-- **Effect:** checked on `main` 26c5eb5: a `contacts.json` with one contact named
-  `123` (or with birthday `01.01.1899`, or phone `123`) and a valid contact `Bob`
-  is moved to `.bak` as a whole. The app starts with empty contacts, so Bob is
-  not visible either. No data is lost: it is in the `.bak` file.
-- **Who is affected:** only data created by development builds before T34.
-- **Workaround:** fix or remove the invalid contact in the `.bak` file and save it
-  as `~/.personal_assistant/contacts.json`.
-- **Open question:** recovery policy for old data is discussed in #34 (Lead review):
-  load valid contacts and keep the original file. Update E9/E10 after #34.
+- **Current behaviour:** T34 added new rules (name needs a letter, birthday from 1900).
+  A `contacts.json` with one contact that breaks them (name `123` or birthday
+  `01.01.1899`) next to a valid contact `Bob` is moved to `.bak` as a whole; the app
+  starts with **no contacts**, Bob included.
+- **Impact, recovery, who is affected:** same as KI-1.
+- **Not part of KI-2:** a phone like `123` (E11). It was never valid, so a file with it
+  is a damaged file; moving it to `.bak` is the expected behaviour from T16.
+- **Proposed (not decided):** load the valid contacts and keep the original file.
+- **Status:** open, recovery policy is decided in #34.
+
+## Appendix: fixtures for E8–E11
+
+Create the folder first (`mkdir -p ~/.personal_assistant` /
+`New-Item -ItemType Directory -Force ~/.personal_assistant`), then save the
+fixture as `~/.personal_assistant/contacts.json`.
+
+E8:
+
+```json
+{"contacts": [
+  {"name": "John", "phones": ["0501234567"], "email": null, "address": null, "birthday": null},
+  {"name": "john", "phones": ["0671112233"], "email": null, "address": null, "birthday": null}
+]}
+```
+
+E9a:
+
+```json
+{"contacts": [
+  {"name": "123", "phones": [], "email": null, "address": null, "birthday": null},
+  {"name": "Bob", "phones": ["0671112233"], "email": null, "address": null, "birthday": null}
+]}
+```
+
+E9b, E10, E11: the same as E9a, but replace the first contact with:
+
+- E9b: `{"name": "Ann", "phones": [], "email": null, "address": null, "birthday": "01.01.1899"}`
+- E10: `{"name": "John", "phones": ["0501234567"], "email": "a..b@c.com", "address": null, "birthday": null}`
+- E11: `{"name": "Ann", "phones": ["123"], "email": null, "address": null, "birthday": null}`
 
 ## Result
 
-| Section | Pass | Fail | Known issue | Notes |
-|---------|------|------|-------------|-------|
-| A. Repository, docs, install | | | | |
-| B. CLI loop and usability | | | | |
-| C. Contacts | | | | |
-| D. Notes | | | | |
-| E. Persistence | | | | |
-| F. Bonus: tags | | | | |
-| G. Bonus: intelligent analysis | | | | |
-| H. Code quality | | | | |
-| I. Submission | | | | |
+| Section | ✅ | ❌ | ⚠️ | ⛔ | ⏭ | ⬜ | Notes |
+|---------|----|----|----|----|----|----|-------|
+| A. Repository, docs, install | | | | | | | |
+| B. CLI loop and usability | | | | | | | |
+| C. Contacts | | | | | | | |
+| D. Notes | | | | | | | |
+| E. Persistence and old data | | | | | | | |
+| F. Bonus: tags | | | | | | | |
+| G. Bonus: intelligent analysis | | | | | | | |
+| H. Code quality and diagnostics | | | | | | | |
+| I. Release gates | | | | | | | |
 
-Run by: ______  Date: ______  Commit: ______
+Run by: ______  Date: ______  Commit: ______  CI run: ______
+Windows part run by: ______  Date: ______  Commit: ______
