@@ -74,7 +74,8 @@ def test_edit_note_missing_note(ctx):
 # delete-note
 
 
-def test_delete_note(ctx):
+def test_delete_note(ctx, monkeypatch):
+    monkeypatch.setattr(nh.ui, "confirm", lambda question: True)
     nh.add_note(["temp"], ctx)
     assert nh.delete_note(["1"], ctx) == "Note 1 deleted."
     assert not ctx.notes
