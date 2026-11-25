@@ -3,6 +3,7 @@
 import pytest
 
 from assistant import contact_handlers as ch
+from assistant import storage
 from assistant.address_book import AddressBook
 from assistant.commands import COMMANDS
 from assistant.context import Context
@@ -177,3 +178,116 @@ def test_delete_unknown_contact(ctx):
 def test_contact_commands_are_registered(name):
     assert name in COMMANDS
     assert COMMANDS[name].help_text.startswith(name)
+
+
+# case-insensitive names (T35, uses find() from T34)
+
+
+def phones(ctx, name):
+    return [p.value for p in ctx.book.find(name).phones]
+
+
+# The scenario from the T35 card: one contact "John" with both phones.
+def test_add_other_case_adds_phone_to_same_contact(ctx):
+    ch.add_contact(["John", "0501234567"], ctx)
+
+    assert ch.add_contact(["john", "0631234567"], ctx) == "Phone added to 'John'."
+    assert ch.show_phone(["JOHN"], ctx) == "John: 0501234567; 0631234567"
+    assert list(ctx.book) == ["John"]
+
+
+def test_add_new_contact_still_works(john):
+    assert ch.add_contact(["Anna", "0671234567"], john) == "Contact 'Anna' added."
+    assert sorted(john.book) == ["Anna", "John"]
+
+
+# A similar name is a different person: no fuzzy matching in add.
+def test_add_similar_name_creates_new_contact(john):
+    assert ch.add_contact(["Jon", "0671234567"], john) == "Contact 'Jon' added."
+    assert phones(john, "John") == ["0501234567"]
+    assert phones(john, "Jon") == ["0671234567"]
+
+
+def test_add_existing_phone_in_other_case_is_rejected(john):
+    with pytest.raises(ValidationError, match="already has phone"):
+        ch.add_contact(["JOHN", "0501234567"], john)
+    assert phones(john, "John") == ["0501234567"]
+
+
+def test_add_invalid_phone_in_other_case_changes_nothing(john):
+    with pytest.raises(ValidationError, match="Invalid phone '123'"):
+        ch.add_contact(["john", "123"], john)
+    assert phones(john, "John") == ["0501234567"]
+    assert list(john.book) == ["John"]
+
+
+def test_add_other_case_keeps_other_fields(john):
+    ch.add_email(["John", "john@example.com"], john)
+    ch.add_address(["John", "Kyiv", "Main", "St", "1"], john)
+    ch.add_birthday(["John", "15.03.1990"], john)
+
+    ch.add_contact(["john", "0631234567"], john)
+
+    record = john.book.find("John")
+    assert record.name.value == "John"
+    assert str(record.email) == "john@example.com"
+    assert str(record.address) == "Kyiv Main St 1"
+    assert str(record.birthday) == "15.03.1990"
+    assert phones(john, "John") == ["0501234567", "0631234567"]
+
+
+# Messages show the name as stored, whatever case was typed.
+@pytest.mark.parametrize(
+    ("handler", "args", "expected"),
+    [
+        (
+            ch.change_phone,
+            ["john", "0501234567", "0671234567"],
+            "Phone updated for 'John'.",
+        ),
+        (ch.remove_phone, ["JOHN", "0501234567"], "Phone removed from 'John'."),
+        (ch.add_email, ["john", "john@example.com"], "Email set for 'John'."),
+        (ch.add_address, ["john", "Kyiv"], "Address set for 'John'."),
+        (ch.add_birthday, ["jOhN", "15.03.1990"], "Birthday set for 'John'."),
+    ],
+)
+def test_messages_use_stored_name(john, handler, args, expected):
+    assert handler(args, john) == expected
+
+
+# U4 confirmation still asks, with the stored name.
+def test_delete_other_case_asks_with_stored_name(john, monkeypatch):
+    questions = []
+
+    def fake_confirm(question):
+        questions.append(question)
+        return True
+
+    monkeypatch.setattr(ch.ui, "confirm", fake_confirm)
+
+    assert ch.delete_contact(["john"], john) == "Contact 'John' deleted."
+    assert questions == ["Delete contact 'John'?"]
+    assert not john.book
+
+
+def test_delete_other_case_cancelled_keeps_contact(john, monkeypatch):
+    monkeypatch.setattr(ch.ui, "confirm", lambda question: False)
+
+    assert ch.delete_contact(["JOHN"], john) == "Deletion cancelled."
+    assert list(john.book) == ["John"]
+
+
+# Save and load keeps one contact with both phones.
+def test_save_and_load_keeps_one_contact(ctx, tmp_path):
+    ch.add_contact(["John", "0501234567"], ctx)
+    ch.add_contact(["john", "0631234567"], ctx)
+    path = tmp_path / "contacts.json"
+
+    storage.save_book(ctx.book, path)
+    loaded = storage.load_book(path)
+
+    assert list(loaded) == ["John"]
+    assert [p.value for p in loaded.find("john").phones] == [
+        "0501234567",
+        "0631234567",
+    ]
