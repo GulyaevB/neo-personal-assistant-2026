@@ -6,6 +6,7 @@ but not the function names and arguments.
 
 import difflib
 import re
+import sys
 from collections.abc import Callable, Iterable
 
 from prompt_toolkit import PromptSession, print_formatted_text
@@ -101,12 +102,39 @@ class AssistantCompleter(Completer):
                 yield Completion(candidate, start_position=-len(word))
 
 
+def _is_tty(stream: object) -> bool:
+    """True if the stream is a real terminal (T33).
+
+    False for pipes, files, captured output in tests, IDE run windows
+    without a terminal, and when the stream is None (pythonw on Windows).
+    """
+    try:
+        return bool(stream.isatty())
+    except (AttributeError, ValueError):
+        # No isatty() at all, or the stream is already closed.
+        return False
+
+
+def _is_interactive() -> bool:
+    """True when both input and output are a real terminal (T33).
+
+    prompt_toolkit needs a real console for PromptSession. On Windows it
+    raises NoConsoleScreenBufferError without one, so we fall back to input().
+    """
+    return _is_tty(sys.stdin) and _is_tty(sys.stdout)
+
+
 def read_command(prompt: str = "Enter a command: ") -> str:
     """Read a command with Tab completion (U1).
 
+    Without a real terminal (tests, "assistant < commands.txt") it is plain
+    input(): no Tab and no history, but the same behaviour otherwise (T33).
     Ctrl+C -> KeyboardInterrupt, Ctrl+D -> EOFError, same as input().
     cli handles them, so they are not caught here.
     """
+    if not _is_interactive():
+        return input(prompt)
+
     global _session
     if _session is None:
         _session = PromptSession(
@@ -156,24 +184,45 @@ def highlight(text: str) -> FormattedText:
     return FormattedText(parts)
 
 
+def _output(styled: FormattedText, plain: str) -> None:
+    """Print in color in a terminal, as plain text otherwise (T33).
+
+    Plain print() keeps output readable in files and pipes (no escape codes)
+    and works on Windows when there is no console.
+    """
+    if _is_tty(sys.stdout):
+        print_formatted_text(styled)
+    else:
+        print(plain)
+
+
 def show(text: str) -> None:
     """Show a command result with commands and tags highlighted (U2)."""
-    print_formatted_text(highlight(text))
+    _output(highlight(text), text)
 
 
 def success(text: str) -> None:
     """Messages from cli itself, like "Good bye!" (U2: green)."""
-    print_formatted_text(style_success(text))
+    _output(style_success(text), text)
 
 
 def error(text: str) -> None:
     """Show an error in red (U2)."""
-    print_formatted_text(style_error(text))
+    _output(style_error(text), text)
 
 
 def confirm(question: str) -> bool:
-    """Ask y/n (U4)."""
-    return input(f"{question} (y/n): ").strip().lower() == "y"
+    """Ask y/n before a destructive action (U4).
+
+    Only "y" (any case, spaces ignored) means yes. Empty input, "n",
+    anything else, Ctrl+C or Ctrl+D mean no, so nothing is deleted by mistake.
+    """
+    try:
+        answer = input(f"{question} (y/n): ")
+    except (KeyboardInterrupt, EOFError):
+        print()  # move to a new line after ^C / ^D
+        return False
+    return answer.strip().lower() == "y"
 
 
 def suggest(word: str, commands: list[str]) -> list[str]:
