@@ -11,7 +11,7 @@ from assistant import ui
 from assistant.commands import COMMANDS
 from assistant.context import Context
 from assistant.exceptions import AssistantError
-from assistant.storage import load_book, load_notes, save_book, save_notes
+from assistant.storage import backups, load_book, load_notes, save_book, save_notes
 
 
 def parse_input(line: str) -> tuple[str, list[str]]:
@@ -37,10 +37,13 @@ def main() -> None:
         import_module(f"assistant.{module}")
 
     # Load application data.
+    backups.clear()
     ctx = Context(
         book=load_book(),
         notes=load_notes(),
     )
+    for backup in backups:
+        ui.error(f"Data file was broken, starting empty. Old data is in: {backup}")
 
     # Connect U1 autocomplete to the current contact list.
     ui.set_completion_source(lambda: ctx.book.keys())
