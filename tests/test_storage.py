@@ -147,13 +147,15 @@ def test_app_saves_after_broken_file_without_losing_it(tmp_path):
     assert backups(tmp_path)[0].read_text(encoding="utf-8") == "{not json"
 
 
-def test_bak_name_has_date_and_time(tmp_path):
+def test_bak_name_has_date_and_time(tmp_path, monkeypatch):
+    monkeypatch.setattr(storage, "backups", [])
     path = tmp_path / "contacts.json"
     path.write_text("{not json", encoding="utf-8")
     load_book(path)
     [backup] = backups(tmp_path)
     assert backup.name.startswith("contacts.20")
     assert len(backup.name) == len("contacts.YYYYMMDD-HHMMSS.bak")
+    assert storage.backups == [backup]  # cli shows it to the user (T34)
 
 
 @pytest.mark.parametrize("error", [RuntimeError("bug"), ContactNotFoundError("John")])
