@@ -1,15 +1,21 @@
-"""Decorators for handlers."""
+"""Consistent handling of expected user input errors in command handlers."""
 
 from functools import wraps
 
 from assistant.context import Handler
 from assistant.exceptions import ValidationError
 
+MISSING_ARGUMENTS_MESSAGE = (
+    "Not enough arguments. Type 'help' to see the command format."
+)
+
 
 def input_error(func: Handler) -> Handler:
-    """Not enough arguments (IndexError) -> ValidationError with a hint.
+    """Translate missing arguments and preserve application error messages.
 
-    Other AssistantError go up to cli, it shows them.
+    Expected domain errors remain AssistantError subclasses so the CLI
+    displays their original messages via ui.error(), rather than ui.show().
+    Unexpected programming errors are not swallowed.
     """
 
     @wraps(func)
@@ -17,9 +23,6 @@ def input_error(func: Handler) -> Handler:
         try:
             return func(*args, **kwargs)
         except IndexError:
-            raise ValidationError(
-                "Not enough arguments. Type 'help' to see the command format."
-            ) from None
-        # TODO(T23): same message style everywhere, maybe more error types
+            raise ValidationError(MISSING_ARGUMENTS_MESSAGE) from None
 
     return inner
