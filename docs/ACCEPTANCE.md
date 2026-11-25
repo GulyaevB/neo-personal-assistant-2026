@@ -33,18 +33,26 @@ Sources:
    `add-birthday Anna 28.11.1990` (Saturday, C26). C25 and C27 can't be
    reproduced by hand on that date; they are covered by unit tests in
    `tests/test_birthdays.py`, so check that those tests pass.
-4. Go through every check below. Expected messages are copied from the app
+4. Capture evidence: record the commit (`git log --oneline -1`) and the latest
+   `main` CI run, and save a screenshot of the terminal for every ❌ and ⚠️
+   (and for key ✅ checks: E2, E6, F7). Attach them to the T28 card.
+5. Go through every check below. Expected messages are copied from the app
    (`main`, 25 Nov); if a message changes later, the meaning must stay the same.
-5. Mark each row: ✅ pass, ❌ fail, ⚠️ known issue / note.
-6. For every ❌ create a Trello card `BUG: <short title>` with: steps,
+6. Mark each row: ✅ pass, ❌ fail, ⚠️ known issue / note.
+7. For every ❌ create a Trello card `BUG: <short title>` with: steps,
    expected result, actual result, check ID. Link the card in the
    "Defect" column.
-7. Restore your data afterwards:
+8. Restore your data afterwards:
 
    ```bash
    rm -rf ~/.personal_assistant
    mv ~/.personal_assistant.backup ~/.personal_assistant
    ```
+
+9. Retest: when #34 (strict email + recovery policy) or README PR #28 is merged
+   after the run, retest C7, E10 and A2/A3 on the new commit and update their
+   status. Rows stay open until checked on a real run; green CI alone is not
+   acceptance.
 
 Source codes: **TZ-n** = technical task requirement n, **TZ-B** = bonus checklist,
 **AC-n** = acceptance criterion n, **AC-Bn** = bonus acceptance criterion n,
@@ -55,10 +63,10 @@ Source codes: **TZ-n** = technical task requirement n, **TZ-B** = bonus checklis
 | ID | Check | Expected | Source | Task | Status | Defect |
 |----|-------|----------|--------|------|--------|--------|
 | A1 | Open the GitHub repo without logging in | Repo is public | AC-1 | T01 | | |
-| A2 | Read `README.md` only and install the app | Install and run steps work as written | AC-2 | T27 | | |
+| A2 | Read `README.md` only and install the app | Install and run steps work as written (README PR #28 merged) | AC-2 | T27 | | |
 | A3 | README lists every command with an example | All 25 commands from `help` are documented | AC-2, PL | T27 | | |
 | A4 | `pip install .` in a clean venv | Installs without errors, pulls `prompt_toolkit` | PL | T26 | | |
-| A5 | Run `assistant` from another folder (e.g. `cd ~`) | App starts | PL | T26 | | |
+| A5 | From another folder (e.g. `cd ~`) run `assistant`, then `python -m assistant` | Both entry points start the app | PL | T26 | | |
 | A6 | Public classes and functions have docstrings | Spot check models, handlers, cli | AC-2 | all | | |
 | A7 | Windows: install and run `assistant` in PowerShell | Starts, colors and Tab work | PL | T33 | | |
 
@@ -85,6 +93,7 @@ Source codes: **TZ-n** = technical task requirement n, **TZ-B** = bonus checklis
 |----|-------|----------|--------|------|--------|--------|
 | C1 | `add John 0501234567` | `Contact 'John' added.` | TZ-1 | T19 | | |
 | C2 | `add john 0671112233` (other case) | `Phone added to 'John'.`, still **one** contact | TZ-1 | T35 | | |
+| C2a | `add John 0501234567` again (same phone) | `Contact 'John' already has phone '0501234567'.` | AC-12 | T35 | | |
 | C3 | `add Anna 123` | `Invalid phone '123'. Use 10 digits.` | TZ-3, AC-12 | T05, T19 | | |
 | C4 | `add 123 0501234567` | `Invalid name '123'. Use at least one letter.` | AC-12 | T34 | | |
 | C5 | `add-email John john@mail.com` | `Email set for 'John'.` | TZ-1 | T06, T19 | | |
@@ -142,6 +151,8 @@ Source codes: **TZ-n** = technical task requirement n, **TZ-B** = bonus checklis
 | E6 | Break `notes.json` by hand (`echo "{not json" > ~/.personal_assistant/notes.json`), start | `Data file was broken, starting empty. Old data is in: .../notes.<date>-<time>.bak`, app keeps running | AC-9, PL | T16, T34 | | |
 | E7 | After E6, `exit` | New valid `notes.json` written, `.bak` kept | PL | T16 | | |
 | E8 | Old `contacts.json` with `John` and `john` as two contacts (see Known issues) | Whole file moved to `.bak`, app starts with empty contacts and shows the message | PL | T34 | | ⚠️ known issue |
+| E9 | Old `contacts.json` where **one** contact breaks a new rule (name `123`, birthday `01.01.1899`, phone `123`) next to a valid contact `Bob` | Today: whole file → `.bak`, Bob is not visible either (see KI-2). Expected after the recovery policy is agreed: valid contacts load | PL | T34 | | ⚠️ known issue |
+| E10 | Old `contacts.json` with email `a..b@c.com` (valid before #34) | Today: loads. After #34: the contact is **not lost** and the original data is kept, as agreed in #34 | PL | T34 | | |
 
 ## F. Bonus: tags (10 points)
 
@@ -204,6 +215,20 @@ Source codes: **TZ-n** = technical task requirement n, **TZ-B** = bonus checklis
 - **Possible fix (after submission):** when loading, merge contacts whose names
   differ only in case instead of moving the whole file to `.bak`.
 - **Decision:** documented, not fixed before submission (Lead, 25 Nov).
+
+### KI-2. One invalid old contact hides the whole address book (E9)
+
+- **What:** T34 added new rules (name needs a letter, birthday from 1900).
+  Old data created before these rules can break them.
+- **Effect:** checked on `main` 26c5eb5: a `contacts.json` with one contact named
+  `123` (or with birthday `01.01.1899`, or phone `123`) and a valid contact `Bob`
+  is moved to `.bak` as a whole. The app starts with empty contacts, so Bob is
+  not visible either. No data is lost: it is in the `.bak` file.
+- **Who is affected:** only data created by development builds before T34.
+- **Workaround:** fix or remove the invalid contact in the `.bak` file and save it
+  as `~/.personal_assistant/contacts.json`.
+- **Open question:** recovery policy for old data is discussed in #34 (Lead review):
+  load valid contacts and keep the original file. Update E9/E10 after #34.
 
 ## Result
 
