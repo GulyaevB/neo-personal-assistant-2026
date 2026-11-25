@@ -157,7 +157,31 @@ def test_traceback_is_written_to_log(run, monkeypatch, log_file):
     text = log_file.read_text(encoding="utf-8")
     assert "Unexpected error in command 'boom'" in text
     assert "Traceback" in text
-    assert "RuntimeError: Developer bug" in text
+    assert "in broken" in text  # the code location is kept
+    assert "RuntimeError: <message hidden>" in text
+    assert "RuntimeError: Developer bug" not in text
+
+
+# Exception messages may contain personal data, so they are not logged,
+# also for chained exceptions. Types and code locations stay.
+def test_exception_messages_are_not_logged(run, monkeypatch, log_file):
+    def leaky(args, ctx):
+        try:
+            raise KeyError(args[0])
+        except KeyError as exc:
+            raise ValueError(f"{args[1]} {args[2]}") from exc
+
+    register(monkeypatch, "boom", leaky)
+
+    run("boom John john@example.com 0501234567", "exit")
+
+    text = log_file.read_text(encoding="utf-8")
+    assert "ValueError: <message hidden>" in text
+    assert "Caused by:" in text
+    assert "KeyError: <message hidden>" in text
+    assert "in leaky" in text
+    for secret in ("John", "john@example.com", "0501234567"):
+        assert secret not in text
 
 
 # Arguments may contain personal data, so only the command name is logged.
@@ -192,35 +216,121 @@ def test_no_log_file_without_errors(run, monkeypatch, log_file):
     assert not log_file.exists()
 
 
-# If the log can't be written, the CLI still keeps running.
-def test_cli_keeps_running_when_log_cannot_be_written(run, monkeypatch, tmp_path):
+# If the log file can't be opened, the message must not claim it was saved.
+def test_log_cannot_be_opened(run, monkeypatch, tmp_path, capsys):
     blocker = tmp_path / "not_a_dir"
     blocker.write_text("file, not a folder")
     monkeypatch.setattr(cli, "LOG_FILE", blocker / "assistant.log")
     register(monkeypatch, "boom", broken)
     register(monkeypatch, "echo", echo)
 
-    handlers = []
-    real_get_logger = cli._get_logger
+    rec = run("boom", "echo hi", "exit")
 
-    def spy():
-        result = real_get_logger()
-        handlers.append(cli._log_handler)
-        return result
+    assert rec.errors == [cli.unexpected_error_message("boom", logged=False)]
+    assert "saved" not in rec.errors[0]
+    assert str(cli.LOG_FILE) not in rec.errors[0]
+    assert rec.shown[-1] == "echo: hi"
+    assert rec.saved == ["book", "notes"]
+    assert capsys.readouterr().err == ""
 
-    monkeypatch.setattr(cli, "_get_logger", spy)
+
+class BrokenStream:
+    """A log file whose writes fail, like a full disk."""
+
+    def __init__(self, fail_times=None):
+        self.fail_times = fail_times  # None = always fail
+        self.written = []
+
+    def write(self, text):
+        if self.fail_times is None or self.fail_times > 0:
+            if self.fail_times:
+                self.fail_times -= 1
+            raise OSError("disk full")
+        self.written.append(text)
+
+    def flush(self):
+        pass
+
+    def close(self):
+        pass
+
+    def tell(self):
+        return 0  # used by the rollover check
+
+    def seek(self, *args):
+        return 0
+
+
+def _fail(*args, **kwargs):
+    raise OSError("disk full")
+
+
+# The file opens, but writing or rotating fails later: no traceback on the
+# console, an honest message, and the next command still runs.
+@pytest.mark.parametrize("failure", ["write", "rollover check", "rollover"])
+def test_log_write_or_rollover_fails(run, monkeypatch, capsys, failure):
+    if failure == "write":
+        monkeypatch.setattr(cli._QuietLogHandler, "_open", lambda self: BrokenStream())
+    elif failure == "rollover check":
+        monkeypatch.setattr(cli._QuietLogHandler, "shouldRollover", _fail)
+    else:
+        monkeypatch.setattr(
+            cli._QuietLogHandler, "shouldRollover", lambda self, record: True
+        )
+        monkeypatch.setattr(cli._QuietLogHandler, "doRollover", _fail)
+    register(monkeypatch, "boom", broken)
+    register(monkeypatch, "echo", echo)
 
     rec = run("boom", "echo hi", "exit")
 
-    assert len(rec.errors) == 1
+    assert rec.errors == [cli.unexpected_error_message("boom", logged=False)]
     assert rec.shown[-1] == "echo: hi"
-    assert isinstance(handlers[0], logging.NullHandler)
+    assert rec.saved == ["book", "notes"]
+    assert capsys.readouterr().err == ""
 
 
-# The logger doesn't pass records to the root logger (no console output).
-def test_logger_does_not_propagate():
-    assert cli.logger.propagate is False
-    assert cli.logger.level == logging.ERROR
+# After a failed write the next error is logged normally again.
+def test_log_works_again_after_a_failed_write(run, monkeypatch):
+    stream = BrokenStream(fail_times=1)
+    monkeypatch.setattr(cli._QuietLogHandler, "_open", lambda self: stream)
+    register(monkeypatch, "boom", broken)
+
+    rec = run("boom", "boom", "exit")
+
+    assert rec.errors == [
+        cli.unexpected_error_message("boom", logged=False),
+        cli.unexpected_error_message("boom"),
+    ]
+    assert "Unexpected error in command 'boom'" in "".join(stream.written)
+
+
+# --- the parser ---
+
+
+# A failing parser is called only once: the error is reported with a
+# generic label, the next command runs and exit still saves.
+def test_parser_failure_is_reported_once(run, monkeypatch, log_file):
+    register(monkeypatch, "echo", echo)
+    real_parse = cli.parse_input
+    calls = []
+
+    def flaky_parse(line):
+        calls.append(line)
+        if line == "bad input":
+            raise ValueError("cannot parse")
+        return real_parse(line)
+
+    monkeypatch.setattr(cli, "parse_input", flaky_parse)
+
+    rec = run("bad input", "echo hi", "exit")
+
+    assert rec.errors == [cli.unexpected_error_message("")]
+    assert "this command" in rec.errors[0]
+    assert calls.count("bad input") == 1
+    assert rec.shown[-1] == "echo: hi"
+    assert rec.goodbyes == ["Goodbye!"]
+    assert rec.saved == ["book", "notes"]
+    assert "<unparsed input>" in log_file.read_text(encoding="utf-8")
 
 
 # --- expected errors (T23) stay as they were ---
