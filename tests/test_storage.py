@@ -171,3 +171,37 @@ def test_programming_errors_are_not_hidden(tmp_path, monkeypatch, error):
         load_book(path)
     assert path.exists()
     assert backups(tmp_path) == []
+
+
+# --- T25: Cyrillic data (Ukrainian users) ---
+
+
+# Cyrillic name and address come back the same and stay readable in the file.
+def test_cyrillic_contact_survives_restart(tmp_path):
+    path = tmp_path / "contacts.json"
+    record = Record("Іван")
+    record.add_phone("0501234567")
+    record.set_address("Київ, вул. Хрещатик 1")
+    book = AddressBook()
+    book.add_record(record)
+    save_book(book, path)
+
+    restored = load_book(path)
+    assert restored.find("Іван").address.value == "Київ, вул. Хрещатик 1"
+    text = path.read_text(encoding="utf-8")
+    assert "Іван" in text
+    assert "\\u" not in text  # letters, not \u0406 escapes
+
+
+# Cyrillic note text and tag come back the same, tag search still works.
+def test_cyrillic_note_and_tag_survive_restart(tmp_path):
+    path = tmp_path / "notes.json"
+    notes = NoteBook()
+    notes.add_note("Купити молоко").add_tag("Покупки")
+    save_notes(notes, path)
+
+    restored = load_notes(path)
+    assert restored.find(1).text == "Купити молоко"
+    assert restored.find(1).tags == {"покупки"}
+    assert [note.id for note in restored.find_by_tag("ПОКУПКИ")] == [1]
+    assert "Купити молоко" in path.read_text(encoding="utf-8")
