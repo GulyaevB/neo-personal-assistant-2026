@@ -39,6 +39,18 @@ def test_name_spaces_are_trimmed():
     assert Record("  John  ").name.value == "John"
 
 
+# A name needs at least one letter, any alphabet (T34).
+@pytest.mark.parametrize("value", ["John2", "Анна-Марія", "O'Neil", "J"])
+def test_name_with_letters_is_accepted(value):
+    assert Name(value).value == value
+
+
+@pytest.mark.parametrize("value", ["123", "@#$", "0501234567", "-"])
+def test_name_without_letters_is_rejected(value):
+    with pytest.raises(ValidationError, match="Use at least one letter"):
+        Name(value)
+
+
 # --- Phone ---
 
 
@@ -124,6 +136,19 @@ def test_birthday_is_stored_as_date():
     birthday = Birthday("05.01.2000")
     assert birthday.value == date(2000, 1, 5)
     assert str(birthday) == "05.01.2000"
+
+
+# The year can't be before MIN_BIRTH_YEAR (T34).
+@pytest.mark.parametrize(
+    ("value", "valid"),
+    [("01.01.1900", True), ("31.12.1899", False), ("01.01.0001", False)],
+)
+def test_birthday_year_lower_limit(value, valid):
+    if valid:
+        assert str(Birthday(value)) == value
+    else:
+        with pytest.raises(ValidationError, match="is too old"):
+            Birthday(value)
 
 
 # --- Record ---

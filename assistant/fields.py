@@ -5,6 +5,7 @@ from datetime import date, datetime
 
 from assistant.exceptions import ValidationError
 
+MIN_BIRTH_YEAR = 1900
 DATE_FORMAT = "%d.%m.%Y"
 # Name part: dots only between other characters, never two in a row
 EMAIL_PATTERN = re.compile(r"[\w+-]+(\.[\w+-]+)*@[\w-]+(\.[\w-]+)*\.[A-Za-z]{2,}")
@@ -21,11 +22,16 @@ class Field:
 
 
 class Name(Field):
-    """Contact name, also the key in AddressBook. Spaces around are removed."""
+    """Contact name with at least one letter, also the key in AddressBook.
+
+    Spaces around are removed.
+    """
 
     def __init__(self, value: str):
         if not isinstance(value, str) or not value.strip():
             raise ValidationError("Name can't be empty.")
+        if not any(char.isalpha() for char in value):
+            raise ValidationError(f"Invalid name '{value}'. Use at least one letter.")
         super().__init__(value.strip())
 
 
@@ -58,7 +64,7 @@ class Address(Field):
 
 
 class Birthday(Field):
-    """Date in DD.MM.YYYY, stored as date."""
+    """Date in DD.MM.YYYY from MIN_BIRTH_YEAR to today, stored as date."""
 
     def __init__(self, value: str):
         try:
@@ -67,6 +73,10 @@ class Birthday(Field):
             raise ValidationError(f"Invalid date '{value}'. Use DD.MM.YYYY.") from None
         if birthday > date.today():
             raise ValidationError(f"Birthday '{value}' is in the future.")
+        if birthday.year < MIN_BIRTH_YEAR:
+            raise ValidationError(
+                f"Birthday '{value}' is too old. Use {MIN_BIRTH_YEAR} or later."
+            )
         super().__init__(birthday)
 
     def __str__(self) -> str:
