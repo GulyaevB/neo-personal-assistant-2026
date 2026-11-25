@@ -52,10 +52,12 @@ def edit_note(args: list[str], ctx: Context) -> str:
 @command("delete-note")
 @input_error
 def delete_note(args: list[str], ctx: Context) -> str:
-    """delete-note <id>: delete a note."""
+    """delete-note <id>: delete a note (asks for confirmation)."""
     _require(args, 1, "delete-note <id>")
     note_id = parse_id(args[0])
-    # TODO(U4): ask ui.confirm() before deleting
+    note = ctx.notes.find(note_id)  # unknown id -> error before the question
+    if not ui.confirm(f"Delete note {note_id}: {note.text}?"):
+        return "Deletion cancelled."
     ctx.notes.delete(note_id)
     return f"Note {note_id} deleted."
 
