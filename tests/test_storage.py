@@ -1,6 +1,7 @@
 """Saving and loading contacts and notes (T16)."""
 
 import json
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -220,6 +221,39 @@ def test_bak_name_has_date_and_time(tmp_path, monkeypatch):
     assert backup.name.startswith("contacts.20")
     assert len(backup.name) == len("contacts.YYYYMMDD-HHMMSS.bak")
     assert storage.backups == [(backup, [])]  # cli shows it to the user (T34)
+
+
+class FrozenTime:
+    """datetime replacement: now() is always the same second."""
+
+    @staticmethod
+    def now():
+        return datetime(2026, 11, 25, 12, 0, 0)
+
+
+# Two backups in the same second don't overwrite each other, both when the
+# file is moved (unreadable) and when it is copied (skipped contacts) (T34).
+@pytest.mark.parametrize(
+    "first, second",
+    [
+        (b"{not json\r\n", b"{also not json\n"),
+        (b'{"contacts": [{"name": "123"}]}\r\n', b'{"contacts": [{"name": "456"}]}'),
+    ],
+)
+def test_backups_in_same_second_are_all_kept(tmp_path, monkeypatch, first, second):
+    monkeypatch.setattr(storage, "datetime", FrozenTime)
+    monkeypatch.setattr(storage, "backups", [])
+    path = tmp_path / "contacts.json"
+    for data in (first, second):
+        path.write_bytes(data)
+        load_book(path)
+
+    saved = {bak.name: bak.read_bytes() for bak in backups(tmp_path)}
+    assert saved == {
+        "contacts.20261125-120000.bak": first,
+        "contacts.20261125-120000-1.bak": second,
+    }
+    assert sorted(bak.name for bak, _ in storage.backups) == sorted(saved)
 
 
 @pytest.mark.parametrize("error", [RuntimeError("bug"), ContactNotFoundError("John")])

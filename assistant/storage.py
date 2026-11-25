@@ -3,6 +3,7 @@
 A file that can't be read is renamed to name.YYYYMMDD-HHMMSS.bak and the app
 starts with an empty book. Contacts that fail the current checks are skipped,
 the rest are loaded and the original file is copied to .bak as is.
+An existing .bak is never overwritten (-1, -2... is added to the name).
 New .bak files go to `backups` for cli to show.
 Saving goes through a temp file, so a crash can't leave half a file.
 """
@@ -31,9 +32,16 @@ backups: list[tuple[Path, list[str]]] = []
 
 
 def _backup(path: Path, skipped: list[str] | None = None) -> None:
-    """Move to name.YYYYMMDD-HHMMSS.bak, or copy if contacts were skipped."""
+    """Move to name.YYYYMMDD-HHMMSS.bak, or copy if contacts were skipped.
+
+    An existing .bak is never overwritten: a number is added to the name.
+    """
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     backup = path.with_name(f"{path.stem}.{stamp}.bak")
+    number = 1
+    while backup.exists():
+        backup = path.with_name(f"{path.stem}.{stamp}-{number}.bak")
+        number += 1
     if skipped:
         shutil.copyfile(path, backup)
     else:
