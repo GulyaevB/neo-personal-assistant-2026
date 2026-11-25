@@ -1,8 +1,8 @@
 """Save and load data in ~/.personal_assistant (contacts.json, notes.json).
 
 A broken file is renamed to name.YYYYMMDD-HHMMSS.bak and the app starts
-with an empty book. Saving goes through a temp file, so a crash can't leave
-half a file.
+with an empty book; the new .bak paths go to `backups` for cli to show.
+Saving goes through a temp file, so a crash can't leave half a file.
 """
 
 import json
@@ -21,11 +21,16 @@ NOTES_FILE = DATA_DIR / "notes.json"
 # huge numbers, bad values
 BROKEN_DATA_ERRORS = (ValueError, TypeError, KeyError, OverflowError, ValidationError)
 
+# .bak files made while loading. cli reads this list, so clear it, don't reassign
+backups: list[Path] = []
+
 
 def _backup(path: Path) -> None:
     """Rename a broken file to name.YYYYMMDD-HHMMSS.bak."""
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    path.replace(path.with_name(f"{path.stem}.{stamp}.bak"))
+    backup = path.with_name(f"{path.stem}.{stamp}.bak")
+    path.replace(backup)
+    backups.append(backup)
 
 
 def _load(path: Path, book_class, key: str):
