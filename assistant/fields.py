@@ -7,7 +7,8 @@ from assistant.exceptions import ValidationError
 
 MIN_BIRTH_YEAR = 1900
 DATE_FORMAT = "%d.%m.%Y"
-EMAIL_PATTERN = re.compile(r"[\w.+-]+@[\w-]+(\.[\w-]+)*\.[A-Za-z]{2,}")
+# Name part: dots only between other characters, never two in a row
+EMAIL_PATTERN = re.compile(r"[\w+-]+(\.[\w+-]+)*@[\w-]+(\.[\w-]+)*\.[A-Za-z]{2,}")
 
 
 class Field:
