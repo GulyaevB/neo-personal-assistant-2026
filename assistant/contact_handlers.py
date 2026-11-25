@@ -121,10 +121,12 @@ def show_all(args: list[str], ctx: Context) -> str:
 @command("delete")
 @input_error
 def delete_contact(args: list[str], ctx: Context) -> str:
-    """delete <name>: delete a contact."""
+    """delete <name>: delete a contact (asks for confirmation)."""
     _require(args, 1, "delete <name>")
     name = args[0]
-    # TODO(U4): ask ui.confirm() before deleting
+    ctx.book.find(name)  # unknown contact -> error before the question
+    if not ui.confirm(f"Delete contact '{name}'?"):
+        return "Deletion cancelled."
     ctx.book.delete(name)
     return f"Contact '{name}' deleted."
 

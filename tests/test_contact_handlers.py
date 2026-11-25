@@ -145,7 +145,8 @@ def test_all_sorted_by_name(john):
     assert lines[1].startswith("Contact name: John")
 
 
-def test_delete(john):
+def test_delete(john, monkeypatch):
+    monkeypatch.setattr(ch.ui, "confirm", lambda question: True)
     assert ch.delete_contact(["John"], john) == "Contact 'John' deleted."
     assert "John" not in john.book
 
