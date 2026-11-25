@@ -1,17 +1,21 @@
 """Save and load data in ~/.personal_assistant (contacts.json, notes.json).
 
-A broken file is renamed to name.YYYYMMDD-HHMMSS.bak and the app starts
-with an empty book; the new .bak paths go to `backups` for cli to show.
+A file that can't be read is renamed to name.YYYYMMDD-HHMMSS.bak and the app
+starts with an empty book. Contacts that fail the current checks are skipped,
+the rest are loaded and the original file is copied to .bak as is.
+New .bak files go to `backups` for cli to show.
 Saving goes through a temp file, so a crash can't leave half a file.
 """
 
 import json
+import shutil
 from datetime import datetime
 from pathlib import Path
 
 from assistant.address_book import AddressBook
 from assistant.exceptions import ValidationError
 from assistant.notes import NoteBook
+from assistant.record import Record
 
 DATA_DIR = Path.home() / ".personal_assistant"
 CONTACTS_FILE = DATA_DIR / "contacts.json"
@@ -21,33 +25,37 @@ NOTES_FILE = DATA_DIR / "notes.json"
 # huge numbers, bad values
 BROKEN_DATA_ERRORS = (ValueError, TypeError, KeyError, OverflowError, ValidationError)
 
-# .bak files made while loading. cli reads this list, so clear it, don't reassign
-backups: list[Path] = []
+# (.bak file, names of skipped contacts) made while loading; no names means
+# the whole file was moved. cli reads this list, so clear it, don't reassign
+backups: list[tuple[Path, list[str]]] = []
 
 
-def _backup(path: Path) -> None:
-    """Rename a broken file to name.YYYYMMDD-HHMMSS.bak."""
+def _backup(path: Path, skipped: list[str] | None = None) -> None:
+    """Move to name.YYYYMMDD-HHMMSS.bak, or copy if contacts were skipped."""
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     backup = path.with_name(f"{path.stem}.{stamp}.bak")
-    path.replace(backup)
-    backups.append(backup)
+    if skipped:
+        shutil.copyfile(path, backup)
+    else:
+        path.replace(backup)
+    backups.append((backup, skipped or []))
 
 
-def _load(path: Path, book_class, key: str):
-    """Read the file into book_class. A broken file goes to .bak."""
+def _read(path: Path, key: str) -> dict | None:
+    """The file data, or None if there is no file.
+
+    A file that can't be read is moved to .bak and None is returned.
+    """
     if not path.exists():
-        return book_class()
+        return None
     try:
         data = json.loads(path.read_text(encoding="utf-8-sig"))
-        if not isinstance(data, dict) or not isinstance(data.get(key), list):
-            raise ValueError
-        book = book_class.from_dict(data)
-        if len(book) != len(data[key]):  # same name or id twice
-            raise ValueError
-        return book
-    except BROKEN_DATA_ERRORS:
+    except ValueError:
+        data = None
+    if not isinstance(data, dict) or not isinstance(data.get(key), list):
         _backup(path)
-        return book_class()
+        return None
+    return data
 
 
 def _save(path: Path, data: dict) -> None:
@@ -59,8 +67,21 @@ def _save(path: Path, data: dict) -> None:
 
 
 def load_book(path: Path = CONTACTS_FILE) -> AddressBook:
-    """Load contacts. Empty book if the file is missing or broken."""
-    return _load(path, AddressBook, "contacts")
+    """Load contacts. Bad contacts are skipped and the file is copied to .bak."""
+    book = AddressBook()
+    data = _read(path, "contacts")
+    if data is None:
+        return book
+    skipped = []
+    for item in data["contacts"]:
+        try:
+            book.add_record(Record.from_dict(item))
+        except BROKEN_DATA_ERRORS:
+            name = item.get("name") if isinstance(item, dict) else None
+            skipped.append(str(name or "?"))
+    if skipped:
+        _backup(path, skipped)
+    return book
 
 
 def save_book(book: AddressBook, path: Path = CONTACTS_FILE) -> None:
@@ -70,7 +91,17 @@ def save_book(book: AddressBook, path: Path = CONTACTS_FILE) -> None:
 
 def load_notes(path: Path = NOTES_FILE) -> NoteBook:
     """Load notes. Empty notebook if the file is missing or broken."""
-    return _load(path, NoteBook, "notes")
+    data = _read(path, "notes")
+    if data is None:
+        return NoteBook()
+    try:
+        notes = NoteBook.from_dict(data)
+        if len(notes) != len(data["notes"]):  # same id twice
+            raise ValueError
+        return notes
+    except BROKEN_DATA_ERRORS:
+        _backup(path)
+        return NoteBook()
 
 
 def save_notes(notes: NoteBook, path: Path = NOTES_FILE) -> None:

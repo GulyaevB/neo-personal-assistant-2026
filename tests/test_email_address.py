@@ -1,5 +1,7 @@
 """Email and Address fields (T06)."""
 
+import re
+
 import pytest
 
 from assistant.exceptions import ValidationError
@@ -27,7 +29,7 @@ def test_valid_email(value):
     ],
 )
 def test_bad_email(value):
-    with pytest.raises(ValidationError, match=f"Invalid email '{value}'"):
+    with pytest.raises(ValidationError, match=re.escape(f"Invalid email '{value}'")):
         Email(value)
 
 

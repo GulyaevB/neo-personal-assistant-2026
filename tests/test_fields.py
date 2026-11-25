@@ -4,6 +4,7 @@ Complements test_record, test_contact_errors and test_email_address
 with boundaries they don't cover.
 """
 
+import re
 from datetime import date
 
 import pytest
@@ -98,7 +99,7 @@ def test_email_accepts_common_formats(value):
     "value", ["a..b@c.com", ".a@c.com", "a.@c.com", ".@c.com", "a@b..com", "a@.b.com"]
 )
 def test_email_rejects_bad_dots(value):
-    with pytest.raises(ValidationError, match=f"Invalid email '{value}'"):
+    with pytest.raises(ValidationError, match=re.escape(f"Invalid email '{value}'")):
         Email(value)
 
 

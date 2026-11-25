@@ -61,23 +61,12 @@ def test_save_replaces_old_file(tmp_path):
     assert json.loads(path.read_text(encoding="utf-8")) == {"contacts": []}
 
 
+# A file that can't be read at all is moved to .bak.
 @pytest.mark.parametrize(
     "text",
-    [
-        "{not json",
-        "",
-        "[]",
-        '{"notes": []}',
-        '{"contacts": "John"}',
-        '{"contacts": [{"phones": []}]}',
-        '{"contacts": [{"name": "John", "phones": ["123"]}]}',
-        '{"contacts": [{"name": "John", "phones": null}]}',
-        '{"contacts": ["John"]}',
-        '{"contacts": [{"name": "John"}, {"name": " John "}]}',
-        '{"contacts": [{"name": "John"}, {"name": "john"}]}',
-    ],
+    ["{not json", "", "[]", '{"notes": []}', '{"contacts": "John"}'],
 )
-def test_broken_contacts_file_goes_to_bak(tmp_path, text):
+def test_unreadable_contacts_file_goes_to_bak(tmp_path, text):
     path = tmp_path / "contacts.json"
     path.write_text(text, encoding="utf-8")
 
@@ -85,6 +74,80 @@ def test_broken_contacts_file_goes_to_bak(tmp_path, text):
     assert not path.exists()
     [backup] = backups(tmp_path)
     assert backup.read_text(encoding="utf-8") == text
+
+
+# Bad contacts are skipped, good ones are loaded, the original is copied to .bak.
+@pytest.mark.parametrize(
+    ("bad", "name"),
+    [
+        ({"phones": []}, "?"),
+        ({"name": "Bob", "phones": ["123"]}, "Bob"),
+        ({"name": "Bob", "phones": None}, "Bob"),
+        ("Bob", "?"),
+        ({"name": " Ann "}, " Ann "),
+        ({"name": "ann"}, "ann"),
+    ],
+)
+def test_bad_contacts_are_skipped(tmp_path, monkeypatch, bad, name):
+    monkeypatch.setattr(storage, "backups", [])
+    path = tmp_path / "contacts.json"
+    text = json.dumps({"contacts": [{"name": "Ann"}, bad]})
+    path.write_text(text, encoding="utf-8")
+
+    assert list(load_book(path)) == ["Ann"]
+    [backup] = backups(tmp_path)
+    assert backup.read_text(encoding="utf-8") == text
+    assert path.read_text(encoding="utf-8") == text
+    assert storage.backups == [(backup, [name])]
+
+
+def test_all_contacts_bad_gives_empty_book_and_keeps_file(tmp_path):
+    path = tmp_path / "contacts.json"
+    text = json.dumps({"contacts": [{"name": "123"}, {"name": "Bob", "phones": [1]}]})
+    path.write_text(text, encoding="utf-8")
+
+    assert len(load_book(path)) == 0
+    [backup] = backups(tmp_path)
+    assert backup.read_text(encoding="utf-8") == text
+
+
+# Data saved by an older version can fail newer checks (T34): the valid
+# contacts stay, the original file is kept byte for byte, notes are not touched.
+@pytest.mark.parametrize(
+    "legacy",
+    [
+        {"name": "Bob", "email": "a..b@c.com"},
+        {"name": "123"},
+        {"name": "Bob", "birthday": "01.01.1850"},
+        {"name": "john"},
+    ],
+)
+def test_legacy_contact_does_not_hide_others(tmp_path, monkeypatch, legacy):
+    monkeypatch.setattr(storage, "backups", [])
+    contacts = tmp_path / "contacts.json"
+    john = {"name": "John", "phones": ["0501234567"], "email": "john@mail.com"}
+    original = json.dumps({"contacts": [john, legacy]}).encode()
+    contacts.write_bytes(original)
+    notes = tmp_path / "notes.json"
+    old_notes = NoteBook()
+    old_notes.add_note("Buy milk")
+    save_notes(old_notes, notes)
+
+    book = load_book(contacts)
+    save_notes(load_notes(notes), notes)
+    save_book(book, contacts)
+
+    assert list(book) == ["John"]
+    assert book.find("John").email.value == "john@mail.com"
+    [backup] = backups(tmp_path)
+    assert backup.read_bytes() == original
+    assert storage.backups == [(backup, [legacy["name"]])]
+    assert load_notes(notes).to_dict() == old_notes.to_dict()
+
+    # Next start: only John, no new .bak, the first .bak is unchanged.
+    assert list(load_book(contacts)) == ["John"]
+    assert backups(tmp_path) == [backup]
+    assert backup.read_bytes() == original
 
 
 def note(**fields):
@@ -156,7 +219,7 @@ def test_bak_name_has_date_and_time(tmp_path, monkeypatch):
     [backup] = backups(tmp_path)
     assert backup.name.startswith("contacts.20")
     assert len(backup.name) == len("contacts.YYYYMMDD-HHMMSS.bak")
-    assert storage.backups == [backup]  # cli shows it to the user (T34)
+    assert storage.backups == [(backup, [])]  # cli shows it to the user (T34)
 
 
 @pytest.mark.parametrize("error", [RuntimeError("bug"), ContactNotFoundError("John")])
@@ -167,7 +230,7 @@ def test_programming_errors_are_not_hidden(tmp_path, monkeypatch, error):
     def bug(data):
         raise error
 
-    monkeypatch.setattr(storage.AddressBook, "from_dict", bug)
+    monkeypatch.setattr(storage.Record, "from_dict", bug)
     with pytest.raises(type(error)):
         load_book(path)
     assert path.exists()
