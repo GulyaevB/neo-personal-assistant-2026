@@ -19,22 +19,35 @@ def _birthday_in_year(birthday: date, year: int) -> date:
 
 
 class AddressBook(UserDict):
-    """Contacts by name: {name: Record}."""
+    """Contacts by name: {name: Record}.
+
+    Names are unique ignoring case. The name is stored as it was typed first.
+    """
+
+    def _stored_name(self, name: str) -> str | None:
+        """The name as it is stored in the book (case ignored), or None."""
+        for stored in self.data:
+            if stored.lower() == name.lower():
+                return stored
+        return None
 
     def add_record(self, record: Record) -> None:
-        """Add a contact. A contact with the same name is replaced."""
+        """Add a new contact or raise ValidationError if the name is taken."""
+        stored = self._stored_name(record.name.value)
+        if stored is not None:
+            raise ValidationError(f"Contact '{stored}' already exists.")
         self.data[record.name.value] = record
 
     def find(self, name: str) -> Record:
-        """Return the contact or raise ContactNotFoundError."""
-        if name not in self.data:
+        """Return the contact (case ignored) or raise ContactNotFoundError."""
+        stored = self._stored_name(name)
+        if stored is None:
             raise ContactNotFoundError(name)
-        return self.data[name]
+        return self.data[stored]
 
     def delete(self, name: str) -> None:
-        """Delete the contact or raise ContactNotFoundError."""
-        self.find(name)
-        del self.data[name]
+        """Delete the contact (case ignored) or raise ContactNotFoundError."""
+        del self.data[self.find(name).name.value]
 
     def search(self, query: str) -> list[Record]:
         """Contacts whose name, phone, email or address contains `query`.

@@ -8,7 +8,7 @@ from datetime import date
 import pytest
 
 from assistant.address_book import AddressBook
-from assistant.exceptions import ContactNotFoundError
+from assistant.exceptions import ContactNotFoundError, ValidationError
 from assistant.record import Record
 
 
@@ -43,16 +43,35 @@ def test_contact_added_with_spaces_is_found_by_clean_name():
     assert address_book.find("Olga").name.value == "Olga"
 
 
-# Names are keys as typed: find() is exact, search() is the forgiving one.
-def test_find_is_exact_but_search_is_case_insensitive(book):
-    with pytest.raises(ContactNotFoundError):
-        book.find("john")
-    assert [record.name.value for record in book.search("john")] == ["John"]
+# find() ignores case, the name keeps the case it was saved with (T34).
+@pytest.mark.parametrize("name", ["John", "john", "JOHN"])
+def test_find_ignores_case(book, name):
+    assert book.find(name).name.value == "John"
+
+
+# A really missing contact is still an error.
+def test_find_missing_contact(book):
+    with pytest.raises(ContactNotFoundError, match="Contact 'jon' not found."):
+        book.find("jon")
+
+
+# The same name in another case is not a second contact.
+@pytest.mark.parametrize("name", ["John", "john", " JOHN "])
+def test_same_name_in_other_case_is_not_added(book, name):
+    with pytest.raises(ValidationError, match="Contact 'John' already exists."):
+        book.add_record(Record(name))
+    assert list(book.keys()) == ["John", "Anna"]
+    assert book.find("John").phones[0].value == "0501234567"
 
 
 # Deleting one contact keeps the others.
 def test_delete_keeps_other_contacts(book):
     book.delete("John")
+    assert list(book.keys()) == ["Anna"]
+
+
+def test_delete_ignores_case(book):
+    book.delete("jOhN")
     assert list(book.keys()) == ["Anna"]
 
 
