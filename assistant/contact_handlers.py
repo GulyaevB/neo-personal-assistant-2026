@@ -9,7 +9,7 @@ from assistant import ui
 from assistant.commands import command
 from assistant.context import Context
 from assistant.decorators import input_error
-from assistant.exceptions import ValidationError
+from assistant.exceptions import ContactNotFoundError, ValidationError
 from assistant.record import Record
 
 DEFAULT_DAYS = 7
@@ -27,13 +27,17 @@ def add_contact(args: list[str], ctx: Context) -> str:
     """add <name> <phone>: create a contact or add a phone to it."""
     _require(args, 2, "add <name> <phone>")
     name, phone = args[0], args[1]
-    if name in ctx.book:
-        ctx.book.find(name).add_phone(phone)
-        return f"Phone added to '{name}'."
-    record = Record(name)
-    record.add_phone(phone)  # check the phone before the contact is saved
-    ctx.book.add_record(record)
-    return f"Contact '{name}' added."
+    try:
+        # Case is ignored (T34): "john" finds "John". Only "not found" means
+        # a new contact; a bad phone below is a real error, not "not found".
+        record = ctx.book.find(name)
+    except ContactNotFoundError:
+        record = Record(name)
+        record.add_phone(phone)  # check the phone before the contact is saved
+        ctx.book.add_record(record)
+        return f"Contact '{record.name.value}' added."
+    record.add_phone(phone)
+    return f"Phone added to '{record.name.value}'."
 
 
 @command("change")
@@ -42,8 +46,9 @@ def change_phone(args: list[str], ctx: Context) -> str:
     """change <name> <old_phone> <new_phone>: replace a phone."""
     _require(args, 3, "change <name> <old_phone> <new_phone>")
     name, old_phone, new_phone = args[0], args[1], args[2]
-    ctx.book.find(name).edit_phone(old_phone, new_phone)
-    return f"Phone updated for '{name}'."
+    record = ctx.book.find(name)
+    record.edit_phone(old_phone, new_phone)
+    return f"Phone updated for '{record.name.value}'."
 
 
 @command("remove-phone")
@@ -52,8 +57,9 @@ def remove_phone(args: list[str], ctx: Context) -> str:
     """remove-phone <name> <phone>: remove a phone."""
     _require(args, 2, "remove-phone <name> <phone>")
     name, phone = args[0], args[1]
-    ctx.book.find(name).remove_phone(phone)
-    return f"Phone removed from '{name}'."
+    record = ctx.book.find(name)
+    record.remove_phone(phone)
+    return f"Phone removed from '{record.name.value}'."
 
 
 @command("add-email")
@@ -61,9 +67,9 @@ def remove_phone(args: list[str], ctx: Context) -> str:
 def add_email(args: list[str], ctx: Context) -> str:
     """add-email <name> <email>: set the email."""
     _require(args, 2, "add-email <name> <email>")
-    name = args[0]
-    ctx.book.find(name).set_email(args[1])
-    return f"Email set for '{name}'."
+    record = ctx.book.find(args[0])
+    record.set_email(args[1])
+    return f"Email set for '{record.name.value}'."
 
 
 @command("add-address")
@@ -71,9 +77,9 @@ def add_email(args: list[str], ctx: Context) -> str:
 def add_address(args: list[str], ctx: Context) -> str:
     """add-address <name> <address...>: set the address (can be several words)."""
     _require(args, 2, "add-address <name> <address>")
-    name = args[0]
-    ctx.book.find(name).set_address(" ".join(args[1:]))
-    return f"Address set for '{name}'."
+    record = ctx.book.find(args[0])
+    record.set_address(" ".join(args[1:]))
+    return f"Address set for '{record.name.value}'."
 
 
 @command("add-birthday")
@@ -81,9 +87,9 @@ def add_address(args: list[str], ctx: Context) -> str:
 def add_birthday(args: list[str], ctx: Context) -> str:
     """add-birthday <name> <DD.MM.YYYY>: set the birthday."""
     _require(args, 2, "add-birthday <name> <DD.MM.YYYY>")
-    name = args[0]
-    ctx.book.find(name).set_birthday(args[1])
-    return f"Birthday set for '{name}'."
+    record = ctx.book.find(args[0])
+    record.set_birthday(args[1])
+    return f"Birthday set for '{record.name.value}'."
 
 
 @command("phone")
@@ -123,8 +129,8 @@ def show_all(args: list[str], ctx: Context) -> str:
 def delete_contact(args: list[str], ctx: Context) -> str:
     """delete <name>: delete a contact (asks for confirmation)."""
     _require(args, 1, "delete <name>")
-    name = args[0]
-    ctx.book.find(name)  # unknown contact -> error before the question
+    record = ctx.book.find(args[0])  # unknown contact -> error, no question
+    name = record.name.value  # as stored: "John", even if "john" was typed
     if not ui.confirm(f"Delete contact '{name}'?"):
         return "Deletion cancelled."
     ctx.book.delete(name)
