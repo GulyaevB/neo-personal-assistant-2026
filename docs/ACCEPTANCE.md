@@ -3,6 +3,11 @@
 Final acceptance of the Personal Assistant before submission.
 Owner: Kate (Tests & Features). Planned run: **27 Nov 2026**.
 
+Testers (team sync, 26 Nov): **macOS: Kate** (all sections),
+**Windows: Oksana** (A7, B, G, H3 and the Windows commands of E).
+Kate coordinates and collects the evidence. Each OS gets its own evidence
+and its own line in "Run log".
+
 Sources:
 
 - Neoversity technical task ("ТЗ Персональний помічник"): 8 requirements + bonus checklist
@@ -21,7 +26,7 @@ Source codes: **TZ-n** = technical task requirement n, **TZ-B** = bonus checklis
 | ✅ Pass | Result matches "Expected" |
 | ❌ Fail | Result differs or the app crashes: create a Trello `BUG:` card |
 | ⚠️ Known issue | Current behaviour is documented in "Known issues"; the decision is not final |
-| ⛔ Blocked | Can't be checked yet: a dependency is not merged (e.g. #34, #28) |
+| ⛔ Blocked | Can't be checked yet: a dependency is not merged or not available |
 | ⏭ Deferred | Agreed with the Lead to check or fix after submission |
 
 Every row that is not ⬜ needs evidence in the last column: a screenshot name,
@@ -47,9 +52,16 @@ source .venv/bin/activate
 pip install .
 
 export ACCEPTANCE_RUN="$(mktemp -d)"
-section() { export HOME="$ACCEPTANCE_RUN/$1"; mkdir -p "$HOME"; echo "HOME=$HOME"; }
+section() {
+  export HOME="$ACCEPTANCE_RUN/$1"
+  mkdir -p "$HOME"
+  DATA="$(python -c 'from assistant.storage import DATA_DIR; print(DATA_DIR)')"
+  case "$DATA" in
+    "$ACCEPTANCE_RUN"/*) echo "OK, test data folder: $DATA" ;;
+    *) echo "STOP: $DATA is not inside $ACCEPTANCE_RUN"; DATA="" ;;
+  esac
+}
 section A
-python -c "from assistant.storage import DATA_DIR; print(DATA_DIR)"
 ```
 
 **Windows (PowerShell):**
@@ -62,25 +74,38 @@ py -3 -m venv .venv
 pip install .
 
 $env:ACCEPTANCE_RUN = Join-Path $env:TEMP "pa-acceptance-$(Get-Date -Format yyyyMMdd-HHmmss)"
-function section($name) { $env:USERPROFILE = Join-Path $env:ACCEPTANCE_RUN $name; New-Item -ItemType Directory -Force $env:USERPROFILE | Out-Null; "USERPROFILE=$env:USERPROFILE" }
+function section($name) {
+  $env:USERPROFILE = Join-Path $env:ACCEPTANCE_RUN $name
+  $env:HOME = $env:USERPROFILE
+  New-Item -ItemType Directory -Force $env:USERPROFILE | Out-Null
+  $global:DATA = python -c "from assistant.storage import DATA_DIR; print(DATA_DIR)"
+  if ($global:DATA.StartsWith($env:ACCEPTANCE_RUN)) { "OK, test data folder: $global:DATA" }
+  else { "STOP: $global:DATA is not inside $env:ACCEPTANCE_RUN"; $global:DATA = $null }
+}
 section A
-python -c "from assistant.storage import DATA_DIR; print(DATA_DIR)"
 ```
 
 If `Activate.ps1` is blocked, run `Set-ExecutionPolicy -Scope Process RemoteSigned`
 first (only for this PowerShell window).
 
-**Safety check before every section:** the last command must print a path
-**inside the temporary folder** (`.../A/.personal_assistant`). If it prints
-your real home folder, stop: the variable was not set in this terminal.
+**Safety rule:** `section` asks the app itself where it will keep data
+(`assistant.storage.DATA_DIR`) and stores this path in `$DATA`. It must print
+`OK, test data folder: ...` with a path inside the temporary folder. If it prints
+`STOP`, do not continue.
+
+**All file operations in this checklist use `$DATA`, never `~`.** In PowerShell,
+`~` keeps pointing to your real home folder even after `USERPROFILE` is changed,
+so a command like `Set-Content ~/.personal_assistant/...` could overwrite real
+data. Before any command that creates or changes a file, check `$DATA` again:
+`echo "$DATA"` / `$DATA`.
 
 Use only this terminal for the run. Other terminals and your normal use of
 the app keep working with your real data.
 
 ### 2. One fresh data folder per section
 
-Each section starts with `section <letter>` (e.g. `section C`) and the safety
-check. This gives the section its own empty data folder, so the sections don't
+Each section starts with `section <letter>` (e.g. `section C`), which runs the
+safety check. This gives the section its own empty data folder, so the sections don't
 depend on each other. Inside a section, run the rows **in the order shown**:
 later rows use the data created by earlier rows of the same section.
 
@@ -93,8 +118,11 @@ Saturday within 7 days for Anna, and update "Expected" accordingly.
 
 ### 4. Evidence
 
-- Write down the commit (`git log --oneline -1`) and the link to the latest
-  `main` CI run at the end of this file.
+- Before starting, fill in your line in "Run log" at the end of this file:
+  OS and version, shell, `python --version`, commit (`git log --oneline -1`)
+  and the link to the CI run of that commit.
+- All rows of one run must be checked on **the same commit**. A result from an
+  older commit counts only after a retest on the commit under acceptance.
 - Take a screenshot for every ❌, ⚠️, ⛔ row and for E2, E6, F10.
   Attach them to the T28 card and put the file name in the last column.
 
@@ -106,9 +134,10 @@ Put the card name in the last column and post it in Slack.
 
 ### 6. Retest
 
-When #34 (strict email + legacy-data recovery policy) or README PR #28 is
-merged after the run, retest the affected rows (A2, A3, C7, E8–E12) on the new
-commit and update their status and evidence.
+If a fix is merged after the run, retest only the affected rows on the new
+commit and update their status and evidence. #34 (strict email + legacy-data
+recovery) and README #28 are already in `main` (12319c5), so A2, A3, C7 and
+E8–E12 are checked in the normal run.
 
 ### 7. Clean up
 
@@ -124,8 +153,8 @@ Setup: `section A`.
 | ID | Check | Expected | Source | Task | Status | Evidence / Defect |
 |----|-------|----------|--------|------|--------|-------------------|
 | A1 | Open the GitHub repo in a private browser window | Repo is public | AC-1 | T01 | ⬜ | |
-| A2 | Follow only `README.md` to install and start the app | Install and run steps work as written (README PR #28 merged) | AC-2 | T27 | ⬜ | |
-| A3 | Compare README with `help` | All 25 commands from `help` are documented with an example | AC-2, PL | T27 | ⬜ | |
+| A2 | Follow only `README.md` ("Quick start") to install and start the app | Install and run steps work as written | AC-2 | T27 | ⬜ | |
+| A3 | Compare README "Command reference" with `help` | All 25 commands from `help` are documented with an example | AC-2, PL | T27 | ⬜ | |
 | A4 | `pip install .` in a clean venv | Installs without errors, pulls `prompt_toolkit` | PL | T26 | ⬜ | |
 | A5 | From another folder (`cd ~`) run `assistant`, `exit`, then `python -m assistant`, `exit` | Both entry points start the app and say `Goodbye!` | PL | T26 | ⬜ | |
 | A6 | Public classes and functions have docstrings | Spot check models, handlers, cli | AC-2 | all | ⬜ | |
@@ -162,7 +191,8 @@ Setup: `section C`, start `assistant`, run the rows in this order without restar
 | C4 | `add Anna 123` | `Invalid phone '123'. Use 10 digits.` (Anna is not created) | TZ-3, AC-12 | T05, T19 | ⬜ | |
 | C5 | `add 123 0501234567` | `Invalid name '123'. Use at least one letter.` | AC-12 | T34 | ⬜ | |
 | C6 | `add-email John john@mail.com` | `Email set for 'John'.` | TZ-1 | T06, T19 | ⬜ | |
-| C7 | `add-email John john@mail` and `add-email John a..b@c.com` | `Invalid email 'john@mail'. Use name@domain.com.`; `a..b@c.com` rejected after #34 (today it is accepted: ⛔ until #34) | TZ-3, AC-12 | T06, T34 | ⬜ | |
+| C7 | `add-email John john@mail` | `Invalid email 'john@mail'. Use name@domain.com.`, email stays `john@mail.com` | TZ-3, AC-12 | T06 | ⬜ | |
+| C7b | `add-email John a..b@c.com`, then `all` | `Invalid email 'a..b@c.com'. Use name@domain.com.`; `all` still shows `john@mail.com`. If the email **was** changed (❌), run `add-email John john@mail.com` before C15, so the next rows are not affected | AC-12 | T34 | ⬜ | |
 | C8 | `add-address John Kyiv, Khreshchatyk 1` | `Address set for 'John'.` | TZ-1 | T06, T19 | ⬜ | |
 | C9 | `add-birthday John 30.11.1990` | `Birthday set for 'John'.` | TZ-1 | T07, T19 | ⬜ | |
 | C10 | `add-birthday John 31.02.1990`, `add-birthday John 1990-05-15` | `Invalid date '...'. Use DD.MM.YYYY.` | AC-12 | T05, T07 | ⬜ | |
@@ -207,38 +237,41 @@ Setup: `section D`, start `assistant`, run the rows in this order.
 
 ### E1–E7: saving and loading
 
-Setup: `section E`. Check that `.personal_assistant` does not exist yet
-(`ls -a ~` / `Get-ChildItem -Force ~`).
+Setup: `section E`. Check that the data folder does not exist yet:
+`ls -a "$DATA"` ("No such file") / `Test-Path $DATA` (`False`).
 
 | ID | Check | Expected | Source | Task | Status | Evidence / Defect |
 |----|-------|----------|--------|------|--------|-------------------|
-| E1 | Start the app, `exit` | Starts with empty data; after exit `~/.personal_assistant` has `contacts.json` and `notes.json` | TZ-data, PL | T16 | ⬜ | |
+| E1 | Start the app, `exit`, then `ls "$DATA"` / `Get-ChildItem $DATA` | Starts with empty data; after exit the folder has `contacts.json` and `notes.json` | TZ-data, PL | T16 | ⬜ | |
 | E2 | Start, `add John 0501234567`, `add-note Купити молоко`, `exit`; start again, `all`, `all-notes` | John and `1: Купити молоко` are there | TZ-data, AC-8 | T16, T17 | ⬜ | |
 | E3 | `add Anna 0931112233`, then Ctrl+C; start again, `phone Anna` | `Anna: 0931112233` (saved on Ctrl+C) | AC-8, PL | T17 | ⬜ | |
 | E4 | `add-note Second` | `Note 2 added.` (`next_id` kept after restart) | PL | T11, T16 | ⬜ | |
-| E5 | `exit`; open `contacts.json` and `notes.json` in a text editor | Readable JSON, Cyrillic stored as letters (not `І` escapes) | TZ-data | T16, T25 | ⬜ | |
-| E6 | Break notes by hand: `echo "{not json" > ~/.personal_assistant/notes.json` (PowerShell: `Set-Content ~/.personal_assistant/notes.json "{not json"`), start, `all`, `all-notes` | `Data file was broken, starting empty. Old data is in: .../notes.<date>-<time>.bak`; contacts still load; `No notes yet. ...` | AC-9, PL | T16, T34 | ⬜ | |
-| E7 | `exit`, list the folder | New valid `notes.json` (empty list), the `.bak` file with `{not json` is kept | PL | T16 | ⬜ | |
+| E5 | `exit`; `cat "$DATA/contacts.json" "$DATA/notes.json"` / `Get-Content -Encoding utf8 (Join-Path $DATA notes.json)` | Readable JSON, Cyrillic stored as letters (not `І` escapes) | TZ-data | T16, T25 | ⬜ | |
+| E6 | Check `$DATA`, then break notes: `echo "{not json" > "$DATA/notes.json"` (PowerShell: `Set-Content -Path (Join-Path $DATA notes.json) -Value "{not json"`), start, `all`, `all-notes` | `Data file was broken, starting empty. Old data is in: .../notes.<date>-<time>.bak`; contacts still load; `No notes yet. ...` | AC-9, PL | T16, T34 | ⬜ | |
+| E7 | `exit`, `ls "$DATA"` / `Get-ChildItem $DATA` | New valid `notes.json` (empty list), the `.bak` file with `{not json` is kept | PL | T16 | ⬜ | |
 
 ### E8–E12: old data files (legacy)
 
-The final recovery policy for old data is **open** and decided in PR #34.
-These rows record the **current verified behaviour** (checked on `main` 26c5eb5)
-and, separately, what to check after #34. Until #34 is merged, mark E8–E10
-as ⚠️ (current behaviour confirmed) and their "after #34" part as ⛔.
+Recovery behaviour from #34 (merged, checked on `main` 12319c5): valid contacts
+are loaded, contacts that break the current rules are **skipped**, the startup
+message names them and the original file is **copied** to `.bak`.
+The Lead confirms that this is the final recovery contract (I2). Until then,
+mark E8–E12 as ⛔ Blocked even if they pass, and write the observed result in
+the evidence column.
 
-Setup for each row: `section E8`, `section E9a`, ... (a new empty folder each time),
-create `~/.personal_assistant/contacts.json` with the fixture from the appendix,
-start the app, `all`, `exit`, then list the folder.
+Setup for each row: `section E8`, `section E9a`, ... (a new empty folder each
+time), check `$DATA`, create the folder and both fixtures from the appendix
+(`contacts.json` for the row + the shared `notes.json`), start the app, `all`,
+`all-notes`, `exit`, then `ls "$DATA"` / `Get-ChildItem $DATA`.
 
-| ID | Fixture | Current behaviour (verified) | After #34 (to check) | Source | Task | Status | Evidence / Defect |
-|----|---------|------------------------------|----------------------|--------|------|--------|-------------------|
-| E8 | `John` and `john` as two contacts (created before T34/T35) | Whole file moved to `contacts.<date>-<time>.bak`, message shown, app starts with **no contacts**. Both contacts are unavailable until manual recovery (KI-1) | As agreed in #34 | PL | T34, T35 | ⬜ | |
-| E9a | Name `123` (valid before T34) next to valid `Bob` | Whole file → `.bak`, Bob is unavailable too (KI-2) | Valid contacts load, original file kept, as agreed in #34 | PL | T34 | ⬜ | |
-| E9b | Birthday `01.01.1899` (valid before T34) next to valid `Bob` | Whole file → `.bak`, Bob is unavailable too (KI-2) | Same as E9a | PL | T34 | ⬜ | |
-| E10 | Email `a..b@c.com` (valid before #34) next to valid `Bob` | Loads, both contacts shown | Contact is not lost, original data kept, as agreed in #34 | PL | T34 | ⬜ | |
-| E11 | Phone `123` next to valid `Bob` (this phone was **always** invalid, so this is a damaged file, not old data) | Whole file → `.bak`, message shown, app keeps running | No change expected | AC-9 | T16 | ⬜ | |
-| E12 | After any of E8–E11, `exit` | New `contacts.json` is written, the `.bak` file is kept unchanged | Same | PL | T16 | ⬜ | |
+| ID | Fixture | Expected | Source | Task | Status | Evidence / Defect |
+|----|---------|----------|--------|------|--------|-------------------|
+| E8 | `John` and `john` as two contacts (created before T34/T35) | Startup: `Contacts not loaded: john. Original file copied to: .../contacts.<date>-<time>.bak`; `all` shows John with `0501234567` only (see KI-1) | PL | T34, T35 | ⬜ | |
+| E9a | Name `123` (valid before T34) next to valid `Bob` | `Contacts not loaded: 123. ...`; `all` shows Bob | PL | T34 | ⬜ | |
+| E9b | Birthday `01.01.1899` (valid before T34) next to valid `Bob` | `Contacts not loaded: Ann. ...`; `all` shows Bob | PL | T34 | ⬜ | |
+| E10 | Email `a..b@c.com` (valid before #34) next to valid `Bob` | `Contacts not loaded: John. ...`; `all` shows Bob; John is in the `.bak` copy | PL | T34 | ⬜ | |
+| E11 | Phone `123` next to valid `Bob` (this phone was **always** invalid, a damaged record, not old data) | `Contacts not loaded: Ann. ...`; `all` shows Bob | AC-9 | T16, T34 | ⬜ | |
+| E12 | For each of E8–E11 | Notes are not affected: `all-notes` shows `1: Keep me [home]`, no `notes.*.bak`. After `exit`: `contacts.json` has only the loaded contacts; the `.bak` copy is identical to the fixture (`cmp` / `Compare-Object`) | PL | T16, T34 | ⬜ | |
 
 ## F. Bonus: tags (10 points)
 
@@ -291,8 +324,8 @@ Run in the `acceptance-run` folder.
 | ID | Check | Expected | Source | Task | Status | Evidence / Defect |
 |----|-------|----------|--------|------|--------|-------------------|
 | I1 | Trello board | All mandatory cards are Done, **except** T28 itself, downstream T29/T30 and optional T31 | Team | Lead | ⬜ | |
-| I2 | PRs #34 and #28 | Merged, retest from "How to run" step 6 done | PL | T34, T27 | ⬜ | |
-| I3 | Mentor code review of the final version | Done, comments handled or recorded | AC-14 | Lead | ⬜ | |
+| I2 | Legacy-data recovery contract (#34) and README (#28) | #34 and #28 merged (done: 12319c5); Lead confirms the #34 recovery behaviour as final; E8–E12 moved from ⛔ to their real status | PL | T34, T27 | ⬜ | |
+| I3 | Mentor code review of the final version | Project sent to the mentor in Slack by **Fri 27 Nov, 19:00**; comments handled or recorded | AC-14 | Lead | ⬜ | |
 | I4 | All ❌ rows | Fixed and retested, or moved to ⏭ Deferred with the Lead's decision recorded | PL | T28 | ⬜ | |
 
 T28 is Done only when I1–I4 are complete and the evidence is recorded.
@@ -301,73 +334,71 @@ T28 is Done only when I1–I4 are complete and the evidence is recorded.
 
 | ID | Check | Expected | Task | Status | Evidence |
 |----|-------|----------|------|--------|----------|
-| J1 | Demo | Demo of the accepted version on 28 Nov | T29 | ⬜ | |
+| J1 | Demo | Demo of the accepted version; demo day (project defence) on 30 Nov | T29 | ⬜ | |
 | J2 | LMS submission | Zip of the repo + GitHub link uploaded by every member before 29 Nov, 17:00 Kyiv | T30 | ⬜ | |
 
 ## Known issues
 
-These describe the **current verified behaviour** on `main` 26c5eb5.
-The final decision is pending in PR #34; they are not accepted as final.
+Checked on `main` 12319c5, after #34. Open until the Lead confirms the recovery
+contract (I2); not blockers for submission unless the Lead says otherwise.
 
-### KI-1. Old file with the same name in different case (E8)
+### KI-1. Duplicate names in an old file are not merged (E8)
 
 - **Current behaviour:** before T34/T35 `add John ...` and `add john ...` created two
-  contacts; now names are compared without case. A `contacts.json` that has both
-  can't be loaded: the whole file is renamed to `contacts.<date>-<time>.bak`,
-  the app shows `Data file was broken, starting empty. Old data is in: ...` and
-  starts with **no contacts**.
-- **Impact:** the original file is kept as `.bak`, but **all** contacts from it are
-  unavailable in the app until someone recovers the file by hand. If the user keeps
-  working, new contacts go to a new `contacts.json`, and merging becomes harder.
-- **Who is affected:** data created by development builds before T34/T35
-  (team members' local files). A clean install is not affected.
-- **Manual recovery today:** with the app closed, open the `.bak` file, merge or
-  rename the duplicate, save it as `~/.personal_assistant/contacts.json`.
-- **Proposed (not decided):** when loading, keep the valid contacts instead of
-  moving the whole file to `.bak`.
-- **Status:** open, recovery policy is decided in #34.
+  contacts. Now names are compared without case, so on load the second one
+  (`john`) is skipped and named in the message. Its phone `0671112233` is not in
+  the app, only in the `.bak` copy.
+- **Who is affected:** data created by development builds before T34/T35.
+  A clean install is not affected.
+- **Manual recovery:** open the `.bak` file and add the missing phones with
+  `add John <phone>`.
+- **Possible improvement (after submission):** merge phones of contacts whose names
+  differ only in case.
 
-### KI-2. One contact that breaks a new rule hides all contacts (E9a, E9b)
+### KI-2. Skipped old contacts are only in the `.bak` copy (E9a–E11)
 
-- **Current behaviour:** T34 added new rules (name needs a letter, birthday from 1900).
-  A `contacts.json` with one contact that breaks them (name `123` or birthday
-  `01.01.1899`) next to a valid contact `Bob` is moved to `.bak` as a whole; the app
-  starts with **no contacts**, Bob included.
-- **Impact, recovery, who is affected:** same as KI-1.
-- **Not part of KI-2:** a phone like `123` (E11). It was never valid, so a file with it
-  is a damaged file; moving it to `.bak` is the expected behaviour from T16.
-- **Proposed (not decided):** load the valid contacts and keep the original file.
-- **Status:** open, recovery policy is decided in #34.
+- **Current behaviour:** contacts that break the current rules are skipped and listed
+  in the message; the original file is copied to `.bak`. When the user exits, the
+  new `contacts.json` no longer has them.
+- **Manual recovery:** take the data from the `.bak` file and add the contact again
+  with valid values.
 
 ## Appendix: fixtures for E8–E11
 
-Create the folder first (`mkdir -p ~/.personal_assistant` /
-`New-Item -ItemType Directory -Force ~/.personal_assistant`), then save the
-fixture as `~/.personal_assistant/contacts.json`.
+Always write to `$DATA` (checked by `section`), never to `~`.
 
-E8:
+macOS / Linux:
 
-```json
-{"contacts": [
-  {"name": "John", "phones": ["0501234567"], "email": null, "address": null, "birthday": null},
-  {"name": "john", "phones": ["0671112233"], "email": null, "address": null, "birthday": null}
-]}
+```bash
+mkdir -p "$DATA"
+cat > "$DATA/notes.json" <<'JSON'
+{"next_id": 2, "notes": [{"id": 1, "text": "Keep me", "tags": ["home"], "created": "2026-11-20T10:00:00"}]}
+JSON
+cat > "$DATA/contacts.json" <<'JSON'
+<one fixture from below>
+JSON
+cp "$DATA/contacts.json" "$ACCEPTANCE_RUN/original-contacts.json"   # for E12
 ```
 
-E9a:
+Windows PowerShell:
 
-```json
-{"contacts": [
-  {"name": "123", "phones": [], "email": null, "address": null, "birthday": null},
-  {"name": "Bob", "phones": ["0671112233"], "email": null, "address": null, "birthday": null}
-]}
+```powershell
+New-Item -ItemType Directory -Force $DATA | Out-Null
+Set-Content -Encoding ascii -Path (Join-Path $DATA notes.json) -Value '{"next_id": 2, "notes": [{"id": 1, "text": "Keep me", "tags": ["home"], "created": "2026-11-20T10:00:00"}]}'
+Set-Content -Encoding ascii -Path (Join-Path $DATA contacts.json) -Value '<one fixture from below>'
+Copy-Item (Join-Path $DATA contacts.json) (Join-Path $env:ACCEPTANCE_RUN original-contacts.json)   # for E12
 ```
 
-E9b, E10, E11: the same as E9a, but replace the first contact with:
+E12 check after `exit`: `cmp "$DATA"/contacts.*.bak "$ACCEPTANCE_RUN/original-contacts.json"`
+(prints nothing if identical) / `Compare-Object (Get-Content (Get-Item (Join-Path $DATA 'contacts.*.bak'))) (Get-Content (Join-Path $env:ACCEPTANCE_RUN original-contacts.json))` (prints nothing if identical).
 
-- E9b: `{"name": "Ann", "phones": [], "email": null, "address": null, "birthday": "01.01.1899"}`
-- E10: `{"name": "John", "phones": ["0501234567"], "email": "a..b@c.com", "address": null, "birthday": null}`
-- E11: `{"name": "Ann", "phones": ["123"], "email": null, "address": null, "birthday": null}`
+Contact fixtures (one line each):
+
+- E8: `{"contacts": [{"name": "John", "phones": ["0501234567"], "email": null, "address": null, "birthday": null}, {"name": "john", "phones": ["0671112233"], "email": null, "address": null, "birthday": null}]}`
+- E9a: `{"contacts": [{"name": "123", "phones": [], "email": null, "address": null, "birthday": null}, {"name": "Bob", "phones": ["0671112233"], "email": null, "address": null, "birthday": null}]}`
+- E9b: `{"contacts": [{"name": "Ann", "phones": [], "email": null, "address": null, "birthday": "01.01.1899"}, {"name": "Bob", "phones": ["0671112233"], "email": null, "address": null, "birthday": null}]}`
+- E10: `{"contacts": [{"name": "John", "phones": ["0501234567"], "email": "a..b@c.com", "address": null, "birthday": null}, {"name": "Bob", "phones": ["0671112233"], "email": null, "address": null, "birthday": null}]}`
+- E11: `{"contacts": [{"name": "Ann", "phones": ["123"], "email": null, "address": null, "birthday": null}, {"name": "Bob", "phones": ["0671112233"], "email": null, "address": null, "birthday": null}]}`
 
 ## Result
 
@@ -383,5 +414,9 @@ E9b, E10, E11: the same as E9a, but replace the first contact with:
 | H. Code quality and diagnostics | | | | | | | |
 | I. Release gates | | | | | | | |
 
-Run by: ______  Date: ______  Commit: ______  CI run: ______
-Windows part run by: ______  Date: ______  Commit: ______
+## Run log
+
+| Tester | OS and version | Shell | Python | Commit | CI run | Sections | Date |
+|--------|----------------|-------|--------|--------|--------|----------|------|
+| Kate | macOS | zsh | | | | A–I | |
+| Oksana | Windows 11 | PowerShell 5.1 | | | | A7, B, G, H3, E (Windows commands) | |
