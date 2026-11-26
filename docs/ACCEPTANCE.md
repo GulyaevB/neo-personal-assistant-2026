@@ -25,13 +25,54 @@ Source codes: **TZ-n** = technical task requirement n, **TZ-B** = bonus checklis
 | ⬜ Not run | Not checked yet (default) |
 | ✅ Pass | Result matches "Expected" |
 | ❌ Fail | Result differs or the app crashes: create a Trello `BUG:` card |
-| ⚠️ Known issue | Current behaviour is documented in "Known issues"; the decision is not final |
-| ⛔ Blocked | Can't be checked yet: a dependency is not merged or not available |
-| ⏭ Deferred | Agreed with the Lead to check or fix after submission |
+| ⛔ Blocked | Can't be checked: a dependency is missing or a safety check printed `STOP` |
+| ⏭ Exception | The Lead approved this row as an exception; the link to the decision is in the evidence column |
 
 Every row that is not ⬜ needs evidence in the last column: a screenshot name,
 a link to the T28 card attachment, a CI run link or a `BUG:` card. Green CI
 alone is not acceptance: a row is ✅ only after it was checked on a real run.
+
+**Sign-off rule.** T28 is Done only when, **on every platform** in "Platform
+coverage", every row assigned to that platform is ✅ with evidence, or ⏭ with
+an individually documented Lead-approved exception. Any ⬜, ⛔ or ❌ left in a
+row assigned to a platform blocks sign-off. Accepted limitations (see the end
+of the file) are expected behaviour: their rows are ✅ when the behaviour
+matches.
+
+## Platform coverage
+
+Each platform keeps its **own** results: fill a copy of this file per platform
+(`docs/acceptance-results/macos.md`, `docs/acceptance-results/windows.md`)
+in the results PR. This file stays the empty template.
+
+| Section | macOS (Kate) | Windows (Oksana) |
+|---------|--------------|------------------|
+| A. Repository, install | A1–A6 | A2, A4, A5, A7 |
+| B. CLI loop | B1–B14 (`printf` pipe in B12, B14) | B1–B14 (PowerShell pipe and `cmd.exe` in B12, B14) |
+| C. Contacts (E2E) | all | all |
+| D. Notes (E2E) | all | all |
+| E. Persistence and old data (E2E) | all, bash commands | all, PowerShell commands |
+| F. Tags (E2E) | all | all |
+| G. Command suggestions | all | all |
+| H. Code quality | H1–H11 | H2, H3, H7, H8, H10, H11 |
+| I. Release gates | Kate with the Lead | — |
+
+Mapping to the cross-platform checklist on the Trello card T28:
+
+| Trello item | Rows |
+|-------------|------|
+| Testers, OS/version, Python, exact commit | Run log, "How to run" step 4 |
+| Safety preflight, isolated `DATA_DIR`, verified paths | "How to run" step 1, `section` on every section |
+| Clean install, both entry points outside the repo | A2, A4, A5 (A7 on Windows) |
+| Interactive Tab / colors / history, redirected stdin/stdout | B7–B9, B13, B12, B14 |
+| Contacts, birthdays, notes, tags, invalid input, cancellation, Cyrillic | C, D, F (C26, D10 cancellation; D1, D3, E5 Cyrillic) |
+| Persistence / restart and #34 recovery | E1–E13 |
+| Ruff lint/format and pytest | H2, H3 |
+| README-only onboarding on both platforms | A2 |
+| BUG cards, owners, retest on the affected OS, Lead decisions | "How to run" steps 5–6, ⏭ exceptions |
+| Final sign-off, hand-off to T29 | Sign-off rule, I1–I5 |
+
+If the Trello checklist changes, update this table and the rows before the run.
 
 ## How to run
 
@@ -47,19 +88,28 @@ backup and no restore are needed.
 ```bash
 git clone https://github.com/GulyaevB/neo-personal-assistant-2026.git acceptance-run
 cd acceptance-run
+python3 --version          # must be 3.12 or newer
 python3 -m venv .venv
 source .venv/bin/activate
 pip install .
 
-export ACCEPTANCE_RUN="$(mktemp -d)"
+ACCEPTANCE_RUN="$(mktemp -d)" && [ -d "$ACCEPTANCE_RUN" ] \
+  && export ACCEPTANCE_RUN && echo "Run folder: $ACCEPTANCE_RUN" \
+  || { ACCEPTANCE_RUN=""; echo "STOP: mktemp failed"; }
+
 section() {
+  DATA=""
+  [ -n "$ACCEPTANCE_RUN" ] && [ -d "$ACCEPTANCE_RUN" ] || { echo "STOP: no run folder"; return 1; }
   export HOME="$ACCEPTANCE_RUN/$1"
-  mkdir -p "$HOME"
-  DATA="$(python -c 'from assistant.storage import DATA_DIR; print(DATA_DIR)')"
-  case "$DATA" in
-    "$ACCEPTANCE_RUN"/*) echo "OK, test data folder: $DATA" ;;
-    *) echo "STOP: $DATA is not inside $ACCEPTANCE_RUN"; DATA="" ;;
-  esac
+  mkdir -p "$HOME" || { echo "STOP: mkdir failed"; return 1; }
+  expected="$HOME/.personal_assistant"
+  actual="$(python -c 'from assistant.storage import DATA_DIR; print(DATA_DIR)')" \
+    || { echo "STOP: python failed"; return 1; }
+  if [ "$actual" = "$expected" ]; then
+    DATA="$actual"; echo "OK, test data folder: $DATA"
+  else
+    echo "STOP: app uses $actual, expected $expected"; return 1
+  fi
 }
 section A
 ```
@@ -69,18 +119,29 @@ section A
 ```powershell
 git clone https://github.com/GulyaevB/neo-personal-assistant-2026.git acceptance-run
 cd acceptance-run
+py -3 --version            # must be 3.12 or newer (see README)
 py -3 -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install .
 
 $env:ACCEPTANCE_RUN = Join-Path $env:TEMP "pa-acceptance-$(Get-Date -Format yyyyMMdd-HHmmss)"
+try { New-Item -ItemType Directory $env:ACCEPTANCE_RUN -ErrorAction Stop | Out-Null; "Run folder: $env:ACCEPTANCE_RUN" }
+catch { $env:ACCEPTANCE_RUN = $null; "STOP: New-Item failed" }
+
+function need-data { if (-not $global:DATA) { throw "STOP: `$DATA is not verified, run section first" } }
+
 function section($name) {
-  $env:USERPROFILE = Join-Path $env:ACCEPTANCE_RUN $name
-  $env:HOME = $env:USERPROFILE
-  New-Item -ItemType Directory -Force $env:USERPROFILE | Out-Null
-  $global:DATA = python -c "from assistant.storage import DATA_DIR; print(DATA_DIR)"
-  if ($global:DATA.StartsWith($env:ACCEPTANCE_RUN)) { "OK, test data folder: $global:DATA" }
-  else { "STOP: $global:DATA is not inside $env:ACCEPTANCE_RUN"; $global:DATA = $null }
+  $global:DATA = $null
+  if (-not $env:ACCEPTANCE_RUN -or -not (Test-Path -LiteralPath $env:ACCEPTANCE_RUN -PathType Container)) { "STOP: no run folder"; return }
+  $dir = Join-Path $env:ACCEPTANCE_RUN $name
+  try { New-Item -ItemType Directory -Force $dir -ErrorAction Stop | Out-Null } catch { "STOP: New-Item failed"; return }
+  $env:USERPROFILE = $dir
+  $env:HOME = $dir
+  $expected = Join-Path $dir ".personal_assistant"
+  $actual = python -c "from assistant.storage import DATA_DIR; print(DATA_DIR)"
+  if ($LASTEXITCODE -ne 0) { "STOP: python failed"; return }
+  if ($actual -eq $expected) { $global:DATA = $actual; "OK, test data folder: $DATA" }
+  else { "STOP: app uses $actual, expected $expected" }
 }
 section A
 ```
@@ -88,16 +149,18 @@ section A
 If `Activate.ps1` is blocked, run `Set-ExecutionPolicy -Scope Process RemoteSigned`
 first (only for this PowerShell window).
 
-**Safety rule:** `section` asks the app itself where it will keep data
-(`assistant.storage.DATA_DIR`) and stores this path in `$DATA`. It must print
-`OK, test data folder: ...` with a path inside the temporary folder. If it prints
-`STOP`, do not continue.
+**Safety rule (fail closed):** `section` asks the app itself where it will keep
+data (`assistant.storage.DATA_DIR`) and accepts it only if it is **exactly**
+`<run folder>/<section>/.personal_assistant`. Only then `$DATA` is set and it
+prints `OK, test data folder: ...`. If `mktemp`/`New-Item`, `mkdir` or Python
+fails, or the path is different, it prints `STOP` and `$DATA` stays empty.
+After `STOP`, do not continue: mark the rows ⛔ and report it.
 
-**All file operations in this checklist use `$DATA`, never `~`.** In PowerShell,
-`~` keeps pointing to your real home folder even after `USERPROFILE` is changed,
-so a command like `Set-Content ~/.personal_assistant/...` could overwrite real
-data. Before any command that creates or changes a file, check `$DATA` again:
-`echo "$DATA"` / `$DATA`.
+**All file operations in this checklist use the verified `$DATA`, never `~`.**
+In PowerShell, `~` keeps pointing to your real home folder even after
+`USERPROFILE` is changed. The commands are written so they **refuse to run**
+without a verified path: bash uses `"${DATA:?}"` (error if `$DATA` is empty),
+PowerShell starts each file command with `need-data`.
 
 Use only this terminal for the run. Other terminals and your normal use of
 the app keep working with your real data.
@@ -123,28 +186,31 @@ Saturday within 7 days for Anna, and update "Expected" accordingly.
   and the link to the CI run of that commit.
 - All rows of one run must be checked on **the same commit**. A result from an
   older commit counts only after a retest on the commit under acceptance.
-- Take a screenshot for every ❌, ⚠️, ⛔ row and for E2, E6, F10.
+- Take a screenshot for every ❌, ⛔, ⏭ row and for E2, E6, F10.
   Attach them to the T28 card and put the file name in the last column.
 
 ### 5. Bugs
 
-For every ❌ create a Trello card `BUG: <short title>` with: check ID, commit,
-steps, expected result, actual result, screenshot, owner of the module.
-Put the card name in the last column and post it in Slack.
+For every ❌ create a Trello card `BUG: <short title>` with: check ID, platform,
+commit, steps, expected result, actual result, screenshot, owner of the module.
+Put the card name in the last column and post it in Slack. After the fix, retest
+the row **on the platform where it failed** (and on the other one if the fix
+touches shared code). A deferral needs an explicit Lead decision, linked in the
+row (⏭).
 
 ### 6. Retest
 
 If a fix is merged after the run, retest only the affected rows on the new
 commit and update their status and evidence. #34 (strict email + legacy-data
 recovery) and README #28 are already in `main` (12319c5), so A2, A3, C7 and
-E8–E12 are checked in the normal run.
+E8–E13 are checked in the normal run.
 
 ### 7. Clean up
 
-Close the terminal. Optionally delete the temporary folder:
-`rm -rf "$ACCEPTANCE_RUN"` (macOS/Linux) or
-`Remove-Item -Recurse -Force $env:ACCEPTANCE_RUN` (PowerShell).
-This removes only the test data of the run.
+Close the terminal. No cleanup command is part of this checklist: the run
+folder is in the system temp folder and is cleaned by the OS. If you want to
+delete it earlier, do it by hand in Finder / Explorer after checking that the
+path is the one printed as `Run folder:` at the start.
 
 ## A. Repository, documentation, installation
 
@@ -178,6 +244,8 @@ Setup: `section B`, start `assistant`. Before B8 run `add John 0501234567`.
 | B10 | `exit`; start again, `close` | `Goodbye!`, app stops (both commands) | AC-7 | T17 | ⬜ | |
 | B11 | Start, press Ctrl+C; start, press Ctrl+D | App stops without traceback | AC-9 | T17 | ⬜ | |
 | B12 | Without a console. macOS/Linux: `printf 'help\nexit\n' \| assistant`. PowerShell: `"help","exit" \| assistant`. cmd.exe: `assistant < commands.txt` | Help and `Goodbye!` printed, no `NoConsoleScreenBufferError`, no traceback | AC-9 | T33 | ⬜ | |
+| B13 | Interactive console: run `help`, `all`, then press ↑ twice | The previous commands come back (`all`, then `help`); Enter runs the shown command | AC-6 | U1 | ⬜ | |
+| B14 | Redirected stdout. macOS/Linux: `printf 'help\nexit\n' \| assistant > "$HOME/out.txt"; cat "$HOME/out.txt"`. PowerShell: `"help","exit" \| assistant > (Join-Path $env:USERPROFILE out.txt); Get-Content (Join-Path $env:USERPROFILE out.txt)` | The file has the help text and `Goodbye!`, no traceback, the console stays clean | AC-9 | T33 | ⬜ | |
 
 ## C. Contacts
 
@@ -238,31 +306,30 @@ Setup: `section D`, start `assistant`, run the rows in this order.
 ### E1–E7: saving and loading
 
 Setup: `section E`. Check that the data folder does not exist yet:
-`ls -a "$DATA"` ("No such file") / `Test-Path $DATA` (`False`).
+`ls -a "${DATA:?}"` ("No such file") / `need-data; Test-Path $DATA` (`False`).
 
 | ID | Check | Expected | Source | Task | Status | Evidence / Defect |
 |----|-------|----------|--------|------|--------|-------------------|
-| E1 | Start the app, `exit`, then `ls "$DATA"` / `Get-ChildItem $DATA` | Starts with empty data; after exit the folder has `contacts.json` and `notes.json` | TZ-data, PL | T16 | ⬜ | |
+| E1 | Start the app, `exit`, then `ls "${DATA:?}"` / `need-data; Get-ChildItem $DATA` | Starts with empty data; after exit the folder has `contacts.json` and `notes.json` | TZ-data, PL | T16 | ⬜ | |
 | E2 | Start, `add John 0501234567`, `add-note Купити молоко`, `exit`; start again, `all`, `all-notes` | John and `1: Купити молоко` are there | TZ-data, AC-8 | T16, T17 | ⬜ | |
 | E3 | `add Anna 0931112233`, then Ctrl+C; start again, `phone Anna` | `Anna: 0931112233` (saved on Ctrl+C) | AC-8, PL | T17 | ⬜ | |
 | E4 | `add-note Second` | `Note 2 added.` (`next_id` kept after restart) | PL | T11, T16 | ⬜ | |
-| E5 | `exit`; `cat "$DATA/contacts.json" "$DATA/notes.json"` / `Get-Content -Encoding utf8 (Join-Path $DATA notes.json)` | Readable JSON, Cyrillic stored as letters (not `І` escapes) | TZ-data | T16, T25 | ⬜ | |
-| E6 | Check `$DATA`, then break notes: `echo "{not json" > "$DATA/notes.json"` (PowerShell: `Set-Content -Path (Join-Path $DATA notes.json) -Value "{not json"`), start, `all`, `all-notes` | `Data file was broken, starting empty. Old data is in: .../notes.<date>-<time>.bak`; contacts still load; `No notes yet. ...` | AC-9, PL | T16, T34 | ⬜ | |
-| E7 | `exit`, `ls "$DATA"` / `Get-ChildItem $DATA` | New valid `notes.json` (empty list), the `.bak` file with `{not json` is kept | PL | T16 | ⬜ | |
+| E5 | `exit`; `cat "${DATA:?}/contacts.json" "${DATA:?}/notes.json"` / `need-data; Get-Content -Encoding utf8 (Join-Path $DATA notes.json)` | Readable JSON, Cyrillic stored as letters (not `\u0406` escapes) | TZ-data | T16, T25 | ⬜ | |
+| E6 | Break notes: `echo "{not json" > "${DATA:?}/notes.json"` (PowerShell: `need-data; Set-Content -Path (Join-Path $DATA notes.json) -Value "{not json"`), start, `all`, `all-notes` | `Data file was broken, starting empty. Old data is in: .../notes.<date>-<time>.bak`; contacts still load; `No notes yet. ...` | AC-9, PL | T16, T34 | ⬜ | |
+| E7 | `exit`, `ls "${DATA:?}"` / `need-data; Get-ChildItem $DATA` | New valid `notes.json` (empty list), the `.bak` file with `{not json` is kept | PL | T16 | ⬜ | |
 
-### E8–E12: old data files (legacy)
+### E8–E13: old data files (legacy)
 
-Recovery behaviour from #34 (merged, checked on `main` 12319c5): valid contacts
-are loaded, contacts that break the current rules are **skipped**, the startup
-message names them and the original file is **copied** to `.bak`.
-The Lead confirms that this is the final recovery contract (I2). Until then,
-mark E8–E12 as ⛔ Blocked even if they pass, and write the observed result in
-the evidence column.
+Recovery contract accepted by the Lead in the #34 review and merged
+(`main` 12319c5): valid contacts are loaded, contacts that break the current
+rules are **skipped**, the startup message names them and the original file is
+**copied** to `.bak`; an unreadable file is **moved** to `.bak`. These rows
+check that contract; KI-1 and KI-2 are accepted limitations of it.
 
 Setup for each row: `section E8`, `section E9a`, ... (a new empty folder each
-time), check `$DATA`, create the folder and both fixtures from the appendix
-(`contacts.json` for the row + the shared `notes.json`), start the app, `all`,
-`all-notes`, `exit`, then `ls "$DATA"` / `Get-ChildItem $DATA`.
+time, `OK` required), create both fixtures from the appendix (`contacts.json`
+for the row + the shared `notes.json`), start the app, `all`, `all-notes`,
+`exit`, then run the E12 backup check from the appendix.
 
 | ID | Fixture | Expected | Source | Task | Status | Evidence / Defect |
 |----|---------|----------|--------|------|--------|-------------------|
@@ -271,7 +338,8 @@ time), check `$DATA`, create the folder and both fixtures from the appendix
 | E9b | Birthday `01.01.1899` (valid before T34) next to valid `Bob` | `Contacts not loaded: Ann. ...`; `all` shows Bob | PL | T34 | ⬜ | |
 | E10 | Email `a..b@c.com` (valid before #34) next to valid `Bob` | `Contacts not loaded: John. ...`; `all` shows Bob; John is in the `.bak` copy | PL | T34 | ⬜ | |
 | E11 | Phone `123` next to valid `Bob` (this phone was **always** invalid, a damaged record, not old data) | `Contacts not loaded: Ann. ...`; `all` shows Bob | AC-9 | T16, T34 | ⬜ | |
-| E12 | For each of E8–E11 | Notes are not affected: `all-notes` shows `1: Keep me [home]`, no `notes.*.bak`. After `exit`: `contacts.json` has only the loaded contacts; the `.bak` copy is identical to the fixture (`cmp` / `Compare-Object`) | PL | T16, T34 | ⬜ | |
+| E12 | For each of E8–E11 | Notes are not affected: `all-notes` shows `1: Keep me [home]`, no `notes.*.bak`. After `exit`: `contacts.json` has only the loaded contacts; exactly **one** `contacts.*.bak`, and its SHA-256 equals the SHA-256 of the fixture (appendix: `shasum -a 256` / `Get-FileHash`) | PL | T16, T34 | ⬜ | |
+| E13 | `pytest tests/test_storage.py -k test_backups_in_same_second_are_all_kept -v` | `2 passed`: two backups in the same second are both kept, for the **move** path (unreadable file) and the **copy** path (skipped contacts); each `.bak` keeps its original bytes | PL | T34 | ⬜ | |
 
 ## F. Bonus: tags (10 points)
 
@@ -324,11 +392,12 @@ Run in the `acceptance-run` folder.
 | ID | Check | Expected | Source | Task | Status | Evidence / Defect |
 |----|-------|----------|--------|------|--------|-------------------|
 | I1 | Trello board | All mandatory cards are Done, **except** T28 itself, downstream T29/T30 and optional T31 | Team | Lead | ⬜ | |
-| I2 | Legacy-data recovery contract (#34) and README (#28) | #34 and #28 merged (done: 12319c5); Lead confirms the #34 recovery behaviour as final; E8–E12 moved from ⛔ to their real status | PL | T34, T27 | ⬜ | |
+| I2 | Legacy-data recovery contract (#34) and README (#28) | Merged in 12319c5; recovery contract accepted by the Lead in the #34 review (link in evidence); E8–E13 pass on both platforms | PL | T34, T27 | ⬜ | |
 | I3 | Mentor code review of the final version | Project sent to the mentor in Slack by **Fri 27 Nov, 19:00**; comments handled or recorded | AC-14 | Lead | ⬜ | |
-| I4 | All ❌ rows | Fixed and retested, or moved to ⏭ Deferred with the Lead's decision recorded | PL | T28 | ⬜ | |
+| I4 | Every row in "Platform coverage", per platform | ✅ with evidence, or ⏭ with a Lead-approved exception; no ⬜, ⛔ or ❌ left (sign-off rule) | PL | T28 | ⬜ | |
+| I5 | Hand-off to T29 | The accepted commit (same on both platforms, final `main` CI green) is written on the T29 card and posted in Slack | PL | T28, T29 | ⬜ | |
 
-T28 is Done only when I1–I4 are complete and the evidence is recorded.
+T28 is Done only when I1–I5 are complete for both platforms and the evidence is recorded.
 
 ## J. After acceptance: delivery gates (not part of T28 sign-off)
 
@@ -337,60 +406,76 @@ T28 is Done only when I1–I4 are complete and the evidence is recorded.
 | J1 | Demo | Demo of the accepted version; demo day (project defence) on 30 Nov | T29 | ⬜ | |
 | J2 | LMS submission | Zip of the repo + GitHub link uploaded by every member before 29 Nov, 17:00 Kyiv | T30 | ⬜ | |
 
-## Known issues
+## Accepted limitations
 
-Checked on `main` 12319c5, after #34. Open until the Lead confirms the recovery
-contract (I2); not blockers for submission unless the Lead says otherwise.
+Part of the recovery contract accepted by the Lead in the #34 review (checked on
+`main` 12319c5). They are expected behaviour, not open defects: the rows E8–E12
+are ✅ when the behaviour matches.
 
 ### KI-1. Duplicate names in an old file are not merged (E8)
 
-- **Current behaviour:** before T34/T35 `add John ...` and `add john ...` created two
+- **Behaviour:** before T34/T35 `add John ...` and `add john ...` created two
   contacts. Now names are compared without case, so on load the second one
-  (`john`) is skipped and named in the message. Its phone `0671112233` is not in
-  the app, only in the `.bak` copy.
+  (`john`) is skipped and named in the startup message. Its phone `0671112233`
+  is not in the app, only in the `.bak` copy.
 - **Who is affected:** data created by development builds before T34/T35.
   A clean install is not affected.
 - **Manual recovery:** open the `.bak` file and add the missing phones with
   `add John <phone>`.
-- **Possible improvement (after submission):** merge phones of contacts whose names
-  differ only in case.
 
 ### KI-2. Skipped old contacts are only in the `.bak` copy (E9a–E11)
 
-- **Current behaviour:** contacts that break the current rules are skipped and listed
-  in the message; the original file is copied to `.bak`. When the user exits, the
-  new `contacts.json` no longer has them.
-- **Manual recovery:** take the data from the `.bak` file and add the contact again
-  with valid values.
+- **Behaviour:** contacts that break the current rules are skipped and listed
+  in the startup message; the original file is copied to `.bak`. When the user
+  exits, the new `contacts.json` no longer has them.
+- **Manual recovery:** take the data from the `.bak` file and add the contact
+  again with valid values.
 
-## Appendix: fixtures for E8–E11
+## Appendix: fixtures for E8–E12
 
-Always write to `$DATA` (checked by `section`), never to `~`.
+Run `section <row>` first and continue only after `OK`. The commands refuse to
+run without a verified `$DATA`.
 
 macOS / Linux:
 
 ```bash
-mkdir -p "$DATA"
-cat > "$DATA/notes.json" <<'JSON'
+mkdir -p "${DATA:?}"
+cat > "${DATA:?}/notes.json" <<'JSON'
 {"next_id": 2, "notes": [{"id": 1, "text": "Keep me", "tags": ["home"], "created": "2026-11-20T10:00:00"}]}
 JSON
-cat > "$DATA/contacts.json" <<'JSON'
+cat > "${DATA:?}/contacts.json" <<'JSON'
 <one fixture from below>
 JSON
-cp "$DATA/contacts.json" "$ACCEPTANCE_RUN/original-contacts.json"   # for E12
+cp "${DATA:?}/contacts.json" "$HOME/original-contacts.json"   # for E12
 ```
 
 Windows PowerShell:
 
 ```powershell
+need-data
 New-Item -ItemType Directory -Force $DATA | Out-Null
 Set-Content -Encoding ascii -Path (Join-Path $DATA notes.json) -Value '{"next_id": 2, "notes": [{"id": 1, "text": "Keep me", "tags": ["home"], "created": "2026-11-20T10:00:00"}]}'
 Set-Content -Encoding ascii -Path (Join-Path $DATA contacts.json) -Value '<one fixture from below>'
-Copy-Item (Join-Path $DATA contacts.json) (Join-Path $env:ACCEPTANCE_RUN original-contacts.json)   # for E12
+Copy-Item (Join-Path $DATA contacts.json) (Join-Path $env:USERPROFILE original-contacts.json)   # for E12
 ```
 
-E12 check after `exit`: `cmp "$DATA"/contacts.*.bak "$ACCEPTANCE_RUN/original-contacts.json"`
-(prints nothing if identical) / `Compare-Object (Get-Content (Get-Item (Join-Path $DATA 'contacts.*.bak'))) (Get-Content (Join-Path $env:ACCEPTANCE_RUN original-contacts.json))` (prints nothing if identical).
+E12 backup check, after `exit` (raw bytes, SHA-256):
+
+```bash
+ls "${DATA:?}"/contacts.*.bak | wc -l          # must print 1
+shasum -a 256 "$HOME/original-contacts.json" "${DATA:?}"/contacts.*.bak   # both hashes must be equal
+```
+
+```powershell
+need-data
+$baks = @(Get-ChildItem -LiteralPath $DATA -Filter 'contacts.*.bak')
+if ($baks.Count -ne 1) { "FAIL: expected 1 backup, found $($baks.Count)" }
+else {
+  $orig = (Get-FileHash -Algorithm SHA256 (Join-Path $env:USERPROFILE original-contacts.json)).Hash
+  $bak = (Get-FileHash -Algorithm SHA256 $baks[0].FullName).Hash
+  if ($orig -eq $bak) { "OK: identical, $bak" } else { "FAIL: $orig != $bak" }
+}
+```
 
 Contact fixtures (one line each):
 
@@ -402,17 +487,17 @@ Contact fixtures (one line each):
 
 ## Result
 
-| Section | ✅ | ❌ | ⚠️ | ⛔ | ⏭ | ⬜ | Notes |
-|---------|----|----|----|----|----|----|-------|
-| A. Repository, docs, install | | | | | | | |
-| B. CLI loop and usability | | | | | | | |
-| C. Contacts | | | | | | | |
-| D. Notes | | | | | | | |
-| E. Persistence and old data | | | | | | | |
-| F. Bonus: tags | | | | | | | |
-| G. Bonus: intelligent analysis | | | | | | | |
-| H. Code quality and diagnostics | | | | | | | |
-| I. Release gates | | | | | | | |
+| Section | ✅ | ❌ | ⛔ | ⏭ | ⬜ | Notes |
+|---------|----|----|----|----|----|-------|
+| A. Repository, docs, install | | | | | | |
+| B. CLI loop and usability | | | | | | |
+| C. Contacts | | | | | | |
+| D. Notes | | | | | | |
+| E. Persistence and old data | | | | | | |
+| F. Bonus: tags | | | | | | |
+| G. Bonus: intelligent analysis | | | | | | |
+| H. Code quality and diagnostics | | | | | | |
+| I. Release gates | | | | | | |
 
 ## Run log
 
