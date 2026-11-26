@@ -18,7 +18,14 @@ A team-built Python command-line application for managing contacts, birthdays, n
 - A terminal (Windows PowerShell / Command Prompt, macOS, or Linux).
 - Internet access for the initial installation of Python dependencies.
 
-The package installs `prompt_toolkit` automatically for interactive input and completion. Ruff and pytest are needed only for development and testing.
+### Libraries
+
+| Type | Libraries and purpose |
+| --- | --- |
+| Runtime dependency | `prompt_toolkit>=3.0` — interactive input, completion and terminal formatting; installed automatically. |
+| Python standard library | `json`, `pathlib`, `shutil` — persistence and backups; `datetime` — dates and timestamps; `re` — validation; `difflib` — fuzzy matching and suggestions; `collections.UserDict`, `collections.abc`, `dataclasses` — models and interfaces; `logging`, `traceback` — diagnostics; `sys`, `inspect`, `importlib` — terminal behavior and command registration. No separate installation required. |
+| Development and testing | `ruff` — linting and formatting; `pytest` — automated tests. Install these only for development/testing. |
+| Build tooling | `setuptools>=68` — package build backend, managed by pip during installation. |
 
 ## Quick start
 
@@ -38,21 +45,23 @@ python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-On Windows PowerShell:
+On Windows PowerShell (confirm the version reported by `py -3 --version` is 3.12 or newer before creating the environment):
 
 ```powershell
-py -3.12 -m venv .venv
+py -3 --version
+py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-On Windows Command Prompt:
+On Windows Command Prompt (perform the same version check):
 
 ```bat
-py -3.12 -m venv .venv
+py -3 --version
+py -3 -m venv .venv
 .venv\Scripts\activate.bat
 ```
 
-If your Python executable is not named `python` or `python3`, use the path or launcher appropriate for your environment, ensuring its version is at least 3.12.
+The Windows `py -3` launcher selects an installed Python 3 runtime, so a separate Python 3.12 installation is not required when a compatible newer version is available. If the reported version is below 3.12, select an installed compatible version explicitly (for example, `py -3.13`) or install Python 3.12 or newer before continuing. If `py` is unavailable, use a verified `python --version` (3.12+) followed by `python -m venv .venv`. After activation, check `python --version` again to confirm the environment uses a compatible interpreter.
 
 ### 3. Install the project
 
@@ -336,7 +345,7 @@ The T28 acceptance checklist is the detailed test register; see [T28 in Trello](
 | --- | --- |
 | **Boris** | Team Lead; repository governance, CLI foundations, error handling, packaging, documentation, final presentation. |
 | **Yuliia** | Backend; domain models, validation, address book, serialization and persistent storage. |
-| **Oksana** | UX and CLI; interactive handlers, user-facing commands, completion, deletion confirmation and error resilience. |
+| **Oksana** | UX and CLI; interactive handlers, user-facing commands, completion, deletion confirmation and error resilience; colored output (U2), typo suggestions (U3), and Windows/non-interactive plain-I/O compatibility (T33). |
 | **Kate** | Tests & Features; notes/tag models and commands, CI, test coverage and final acceptance testing. |
 
 Work is organized through the [Trello project board](https://trello.com/b/lYqKSQAW/neo-personal-assistant-group) and reviewed in [GitHub Pull Requests](https://github.com/GulyaevB/neo-personal-assistant-2026/pulls). Team conventions require one task per branch/PR, passing CI, and at least one reviewer approval before the Team Lead performs a Squash Merge.
@@ -347,7 +356,7 @@ Work is organized through the [Trello project board](https://trello.com/b/lYqKSQ
 | --- | --- |
 | `assistant: command not found` | Activate the environment in which the package was installed; try `python -m assistant`. |
 | `No module named assistant` | Run `python -m pip install .` from the cloned repository using the same Python interpreter. |
-| Python version error during installation | Verify with `python --version`; use Python 3.12 or newer. |
+| Python version error during installation | Verify with `python --version`; use Python 3.12 or newer. On Windows, check `py -3 --version`; do not require a specific minor version unless selecting a known installed interpreter. |
 | `Invalid email ... Use name@domain.com.` | Check supported syntax; remove leading, trailing or consecutive dots only if you know the correct email address. |
 | `Invalid phone ... Use 10 digits.` | Enter exactly ten ASCII digits without formatting characters. |
 | A contact name works in `search` but not `phone` | Exact lookups ignore case but do not use fuzzy matching; use `all` to inspect the stored name. |
