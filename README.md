@@ -9,7 +9,7 @@ A team-built Python command-line application for managing contacts, birthdays, n
 - **Data and safety:** local JSON persistence, deletion confirmation, backup notifications, and recovery from unexpected command errors.
 - **Packaging:** install a Python package and launch with either `assistant` or `python -m assistant`.
 
-> **Development status (25 November 2026):** This guide describes the functionality integrated into `main` at `26c5eb5`, including contacts, birthdays, notes, tags, JSON persistence, case-insensitive exact lookup, deletion confirmation, and CLI error recovery. The remaining stricter email validation and legacy-data recovery decision ([PR #34](https://github.com/GulyaevB/neo-personal-assistant-2026/pull/34)) are still under review. Data is saved on exit, not after each command. This is a student project, not a production backup system.
+> **Development status (26 November 2026):** This guide describes the integrated application at `246e183`, including strict email validation and unified contact recovery ([PR #34](https://github.com/GulyaevB/neo-personal-assistant-2026/pull/34)). Feature development is complete for the planned release; final acceptance on macOS and Windows is in progress. Data is saved on exit, not after each command. This is a student project, not a production backup system.
 
 ## Requirements
 
@@ -31,7 +31,7 @@ cd neo-personal-assistant-2026
 
 ### 2. Create and activate a virtual environment (recommended)
 
-On macOS or Linux:
+On macOS or Linux (check `python3 --version` is 3.12+ first):
 
 ```bash
 python3 -m venv .venv
@@ -138,7 +138,7 @@ Tags are one word: Unicode letters, digits, underscores, or hyphens. They are no
 - **Phone numbers:** exactly **10 ASCII digits**, without country prefix, spaces, plus signs, or dashes; duplicate phones on a record are rejected.
 - **Birthdays:** `DD.MM.YYYY` using valid dates from 1900 through today (inclusive). `birthdays` looks ahead seven calendar days by default (including today); `birthdays 1` looks only at today, and the day-count argument must be a positive integer. Birthdays are shown on their calendar dates without weekend shifting; a 29 February birthday is observed on 28 February in non-leap years.
 - **Notes:** blank note text is rejected. Note IDs must be numeric and must identify an existing note for edit/delete. IDs are persisted across restarts.
-- **Email validation:** `add-email` checks basic syntax (for example, `john@example.com`); it does not verify mailbox existence or deliverability. The current validator still accepts some malformed local parts such as `a..b@c.com`. Stricter dot validation and legacy-data handling remain pending in PR #34.
+- **Email validation:** `add-email` validates a supported subset of email syntax, not mailbox existence or deliverability. Before `@`, Unicode word characters (letters, digits, underscore), `+`, `-`, and single dots between non-dot groups are supported. Domain labels use word characters and hyphens, separated by dots, ending in at least two ASCII letters. For example, `first.last+tag@example.com` is accepted; `a..b@c.com`, `.a@c.com`, `a.@c.com`, and `a@b..com` are rejected. A rejected update leaves the existing email unchanged. This is not a full RFC email validator.
 - **Addresses:** a non-blank address may contain multiple words.
 - **Errors:** expected validation and not-found errors display readable messages. Unexpected exceptions during parsing or command execution are reported without a console traceback, and the CLI continues. Diagnostics are written when possible (see [Diagnostic logging](#diagnostic-logging)).
 
@@ -156,13 +156,14 @@ Interactive input (Tab completion and history) requires both stdin and stdout to
 
 ## Example interactive session
 
-The following commands are typed **inside** the assistant. Use a fresh test profile or a backed-up test data directory, not real personal records. For this example, assume an empty address book and notebook; if you already have data, choose unique names and use the note ID actually returned by `add-note`.
+The following commands are typed **inside** the assistant. First use an isolated test profile (see [Cross-platform release testing](#cross-platform-release-testing)), not real personal records. For this example, assume an empty address book and notebook; if you already have data, choose unique names and use the note ID actually returned by `add-note`.
 
 ```text
 help
 add John 0501234567
 add john 0631234567
 add-email John john@example.com
+add-email John a..b@c.com
 add-address John 12 Main Street Kyiv
 add-birthday John 15.05.1990
 phone JOHN
@@ -185,7 +186,7 @@ all
 exit
 ```
 
-**Expected results:** `phone JOHN` shows `John: 0501234567; 0631234567`, with one contact named `John`. Both deletion requests are cancelled by `n`. After `exit`, launch the assistant again and enter `phone john`, `all-notes`, and `search-tag demo` to verify both phones, the note, and its tag were restored. Data is written on exit, not immediately after each command.
+**Expected results:** the second email command is rejected and `all` still shows `john@example.com`. `phone JOHN` shows `John: 0501234567; 0631234567`, with one contact named `John`. Both deletion requests are cancelled by `n`. After `exit`, launch the assistant again and enter `phone john`, `all-notes`, and `search-tag demo` to verify both phones, the note, and its tag were restored. Data is written on exit, not immediately after each command.
 
 ## Data storage and reliability
 
@@ -209,13 +210,29 @@ On Windows, `~` represents the current user's home directory (for example, `C:\U
 
 ### Handling invalid saved files
 
-If a JSON file is malformed or cannot be restored under the current schema or validation rules, the application moves the **entire original file** to a timestamped backup (for example, `contacts.20261125-191500.bak`) and initializes that collection as empty. Startup prints a warning containing the backup path:
+The application distinguishes individual invalid contacts from files that cannot be reconstructed as a collection.
+
+| Situation | Recovery |
+| --- | --- |
+| Contact list has individual invalid records (including invalid email, name, birthday or phone) | Load valid records, skip each invalid record as a whole, and **copy** the original contacts file byte-for-byte to a timestamped backup. |
+| Case-variant duplicate contact names, such as John and john | Keep the first successfully loaded record; skip the conflicting record. Do not merge or normalize it silently. The original file is copied to backup. |
+| Malformed JSON, invalid top-level structure, or a notes collection that fails validation (including duplicate note IDs) | **Move** the entire affected file to a timestamped backup and start that collection empty. |
+
+For skipped contacts, startup reports the names (or `?` when unavailable) and the backup path:
+
+```text
+Contacts not loaded: Bob. Original file copied to: <backup path>
+```
+
+For whole-file recovery, startup reports:
 
 ```text
 Data file was broken, starting empty. Old data is in: <backup path>
 ```
 
-The other collection can still load normally. Previously accepted data can also fail validation after an upgrade: for example, contacts named both `John` and `john`, names containing no letters, or birthdays before 1900. Even otherwise valid contacts in the same file are unavailable until recovery. An empty working JSON file may be written on exit. The application does not automatically migrate or repair records.
+The unaffected collection is loaded normally. Skipped records are not available via normal commands until manually recovered; no fields are silently discarded or corrected within a loaded record. On normal exit, successfully loaded records and new changes are saved to the working JSON file. If every contact is invalid, the working address book starts empty but the original is copied before saving.
+
+Backup names use a local timestamp, for example `contacts.20261125-191500.bak`; sequential recoveries with the same timestamp get `-1`, `-2`, etc. before `.bak`. Existing backups are retained in sequential use. The application is intended for **one active session per data directory**; filename existence checks and JSON writes are not concurrency-safe.
 
 **Manual recovery:**
 
@@ -225,7 +242,7 @@ The other collection can still load normally. Previously accepted data can also 
 4. With the assistant stopped, place the corrected JSON at the corresponding `contacts.json` or `notes.json` path only after preserving the current file. If needed, reconcile new and old records manually rather than overwriting new data.
 5. Restart, inspect the restored records, exit normally, and restart again to verify persistence. If validation still fails, preserve the new backup and review the data again.
 
-Only expected JSON/schema/validation errors trigger this backup path; unrelated programming and filesystem errors are not silently ignored. Do not rely on automatic recovery or use the same data directory for concurrent sessions. The final email-related legacy-data policy is still pending PR #34.
+Expected JSON/schema/validation failures trigger recovery; unrelated programming and filesystem errors can propagate. Do not rely on automatic repair, and do not use concurrent sessions sharing one data directory. Backups can contain personal information: keep them private.
 
 **Limitations:** Changes made during a session are not saved until the session exits. An abrupt process termination can lose changes from that session; this mechanism is not a substitute for regular backups.
 
@@ -248,7 +265,7 @@ The code follows a layered design: **CLI / UI → command handlers → domain mo
 | Note handlers | `assistant/note_handlers.py` | Convert CLI arguments into note operations; parse note IDs. |
 | Tag handlers | `assistant/tag_handlers.py` | Add/remove tags, find notes by tag, and sort notes by tags. |
 | Domain models | `assistant/fields.py`, `assistant/record.py`, `assistant/address_book.py`, `assistant/notes.py`, `assistant/exceptions.py` | Enforce validation, contact and note business rules, search and serialization. |
-| Persistence | `assistant/storage.py` | Load/save local JSON, use atomic replacement, and preserve invalid data in timestamped `.bak` files with startup notification. |
+| Persistence | `assistant/storage.py` | Load/save local JSON, recover valid contacts individually, preserve originals in timestamped backups, and use atomic file replacement. |
 | Verification | `tests/`, `.github/workflows/ci.yml` | pytest regression tests, Ruff lint/format checks, supported Python versions. |
 
 Each command handler accepts `(args: list[str], ctx: Context)` and returns text for the CLI to display, or raises an application-specific error. The `Context` holds the address book (`ctx.book`) and notebook (`ctx.notes`). `@command` registers handlers, `@input_error` normalizes certain argument errors, and `ui` owns text/color formatting.
@@ -270,9 +287,48 @@ python -m ruff format --check .
 python -m pytest
 ```
 
-The GitHub Actions workflow `.github/workflows/ci.yml` runs linting, formatting checks, and pytest on **Python 3.12 and 3.15** for PRs targeting `main` and pushes to `main`. The Python 3.12 job also verifies a regular (non-editable) `python -m pip install .`. Package smoke tests cover both launch commands from a working directory outside the repository. **Current CI runs on Ubuntu, not Windows.** T33 adds plain-I/O fallback for non-terminal sessions, but green Linux CI is not evidence of a fresh Windows run; verify Windows console and redirected I/O separately during release acceptance.
+The GitHub Actions workflow `.github/workflows/ci.yml` runs linting, formatting checks, and pytest on **Python 3.12 and 3.15** for PRs targeting `main` and pushes to `main`. The Python 3.12 job also verifies a regular (non-editable) `python -m pip install .`. Package smoke tests cover both launch commands from a working directory outside the repository. **Current CI runs on Ubuntu, not macOS or Windows.** T33 adds plain-I/O fallback for non-terminal sessions, but green Linux CI is not evidence of macOS or Windows acceptance. The team agreed on 25 November to actively test both desktop platforms; record evidence separately for each.
 
 Tests are under `tests/test_*.py`. Storage-related tests must use pytest's `tmp_path` to avoid modifying a real user's home directory. The full team contribution workflow and Ruff conventions are documented in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+### Cross-platform release testing
+
+Use a disposable terminal and a new temporary home for manual tests. Install the project first (see Quick start); leave the virtual environment active. Do not move or delete any real application data.
+
+macOS / Linux (bash or zsh):
+
+```bash
+TEST_HOME="$(mktemp -d)" || exit 1
+export HOME="$TEST_HOME"
+python -c 'from assistant.storage import DATA_DIR; print(DATA_DIR); assert DATA_DIR.parent == __import__("pathlib").Path.home()'
+```
+
+Windows PowerShell:
+
+```powershell
+$testHome = Join-Path $env:TEMP ("pa-test-" + [guid]::NewGuid())
+New-Item -ItemType Directory -Path $testHome -ErrorAction Stop | Out-Null
+$env:USERPROFILE = $testHome
+python -c "from assistant.storage import DATA_DIR; print(DATA_DIR)"
+```
+
+In either shell, **stop unless the printed DATA_DIR is exactly the new temporary directory plus `.personal_assistant`**. Use the explicit printed path for all filesystem operations; in PowerShell do not use `~` or `$HOME` after changing USERPROFILE. Close the disposable terminal after testing to discard the environment changes; leave the temporary test files intact unless you have separately verified their location.
+
+On each platform, record OS and Python version, Git commit, CI link and results. Verify installation, both launch entry points from outside the repository, interactive completion/colors, redirected input/output, invalid-input handling, contact/note/tag CRUD, cancellation, restart, Unicode and recovery. Run Ruff and pytest using the same Python environment. For plain-I/O smoke testing:
+
+```bash
+# macOS / Linux
+printf 'help\nexit\n' | assistant
+printf 'exit\n' | python -m assistant
+```
+
+```powershell
+# Windows PowerShell
+"help", "exit" | assistant
+"exit" | python -m assistant
+```
+
+The T28 acceptance checklist is the detailed test register; see [T28 in Trello](https://trello.com/c/EzirCCpd). Report failures with reproduction steps and evidence. Do not mark cross-platform acceptance complete merely because Ubuntu CI passed.
 
 ## Team and responsibilities
 
@@ -292,9 +348,10 @@ Work is organized through the [Trello project board](https://trello.com/b/lYqKSQ
 | `assistant: command not found` | Activate the environment in which the package was installed; try `python -m assistant`. |
 | `No module named assistant` | Run `python -m pip install .` from the cloned repository using the same Python interpreter. |
 | Python version error during installation | Verify with `python --version`; use Python 3.12 or newer. |
+| `Invalid email ... Use name@domain.com.` | Check supported syntax; remove leading, trailing or consecutive dots only if you know the correct email address. |
 | `Invalid phone ... Use 10 digits.` | Enter exactly ten ASCII digits without formatting characters. |
 | A contact name works in `search` but not `phone` | Exact lookups ignore case but do not use fuzzy matching; use `all` to inspect the stored name. |
-| Notes or contacts appear missing after restarting | Verify that you exited normally and are using the same OS user account; check `~/.personal_assistant/contacts.json`, `notes.json`, and any timestamped `.bak` files. If a backup warning appeared, preserve the backup and follow the manual recovery steps above; the entire affected collection starts empty. |
+| Notes or contacts appear missing after restarting | Verify that you exited normally and are using the same OS user account; check `~/.personal_assistant/contacts.json`, `notes.json`, and any timestamped `.bak` files. If a backup warning appeared, preserve the backup and follow the manual recovery steps above; some contacts may have been skipped, or a whole affected collection may have started empty. The warning distinguishes these cases. |
 | Tag command is reported as unknown | Check `help` for `add-tag`, `remove-tag`, `search-tag`, and `sort-notes`; reinstall from the current version if necessary. |
 | Deletion cancelled | Only `y` confirms contact/note deletion; any other input cancels. |
 | Tab completion or colors are unavailable with redirected I/O | This is expected: use a real terminal for interactive completion and history; redirected stdout is plain text. |

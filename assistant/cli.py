@@ -212,8 +212,12 @@ def main() -> None:
         book=load_book(),
         notes=load_notes(),
     )
-    for backup in backups:
-        ui.error(f"Data file was broken, starting empty. Old data is in: {backup}")
+    for backup, skipped in backups:
+        if skipped:
+            names = ", ".join(skipped)
+            ui.error(f"Contacts not loaded: {names}. Original file copied to: {backup}")
+        else:
+            ui.error(f"Data file was broken, starting empty. Old data is in: {backup}")
 
     # Connect U1 autocomplete to the current contact list.
     ui.set_completion_source(lambda: ctx.book.keys())

@@ -1,10 +1,11 @@
 """Tests for the CLI parser and application lifecycle (T17)."""
 
+import json
 from pathlib import Path
 
 import pytest
 
-from assistant import cli
+from assistant import cli, storage
 from assistant.address_book import AddressBook
 from assistant.notes import NoteBook
 
@@ -71,18 +72,19 @@ def test_autocomplete_uses_current_contacts(monkeypatch):
     assert list(captured[0]()) == []
 
 
-# A broken data file moved to .bak is reported once, old ones are not (T34).
-def test_main_reports_broken_data_file(monkeypatch):
+# Real storage: skipped contacts and a broken notes file are both reported,
+# .bak files from an earlier run are not (T34).
+def test_main_reports_skipped_contacts_and_broken_file(tmp_path, monkeypatch):
     errors = []
-    new = Path("contacts.20261124-120000.bak")
+    contacts = tmp_path / "contacts.json"
+    notes = tmp_path / "notes.json"
+    legacy = [{"name": "John"}, {"name": "Bob", "email": "a..b@c.com"}]
+    contacts.write_text(json.dumps({"contacts": legacy}), encoding="utf-8")
+    notes.write_text("{not json", encoding="utf-8")
 
-    def load_broken_book():
-        cli.backups.append(new)
-        return AddressBook()
-
-    monkeypatch.setattr(cli, "backups", [Path("old.bak")])
-    monkeypatch.setattr(cli, "load_book", load_broken_book)
-    monkeypatch.setattr(cli, "load_notes", NoteBook)
+    storage.backups.append((Path("old.bak"), []))
+    monkeypatch.setattr(cli, "load_book", lambda: storage.load_book(contacts))
+    monkeypatch.setattr(cli, "load_notes", lambda: storage.load_notes(notes))
     monkeypatch.setattr(cli, "save_book", lambda value: None)
     monkeypatch.setattr(cli, "save_notes", lambda value: None)
     monkeypatch.setattr(cli.ui, "show", lambda message: None)
@@ -93,4 +95,9 @@ def test_main_reports_broken_data_file(monkeypatch):
 
     cli.main()
 
-    assert errors == [f"Data file was broken, starting empty. Old data is in: {new}"]
+    [contacts_bak] = tmp_path.glob("contacts.*.bak")
+    [notes_bak] = tmp_path.glob("notes.*.bak")
+    assert errors == [
+        f"Contacts not loaded: Bob. Original file copied to: {contacts_bak}",
+        f"Data file was broken, starting empty. Old data is in: {notes_bak}",
+    ]
