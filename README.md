@@ -50,8 +50,11 @@ On Windows PowerShell (confirm the version reported by `py -3 --version` is 3.12
 ```powershell
 py -3 --version
 py -3 -m venv .venv
+Set-ExecutionPolicy -Scope Process RemoteSigned
 .\.venv\Scripts\Activate.ps1
 ```
+
+`Set-ExecutionPolicy -Scope Process` allows the activation script only in the current PowerShell window (answer `Y` if PowerShell asks to confirm); run it again in each new window before activating.
 
 On Windows Command Prompt (perform the same version check):
 
