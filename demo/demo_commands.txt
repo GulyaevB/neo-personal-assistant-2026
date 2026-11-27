@@ -1,0 +1,63 @@
+add Olivia 0501112233
+add Olivia 0671112233
+add-email Olivia olivia.smith@example.com
+add-address Olivia Kyiv, Khreshchatyk 22, apt 5
+add-birthday Olivia 01.12.1992
+add Liam 0632223344
+add-email Liam liam.brown@example.com
+add-address Liam Lviv, Svobody Ave 10
+add-birthday Liam 03.12.1988
+add Emma 0933334455
+add-email Emma emma.wilson@example.com
+add-address Emma Odesa, Derybasivska 5
+add-birthday Emma 15.03.1995
+add Noah 0504445566
+add-email Noah noah.taylor@example.com
+add-address Noah Kharkiv, Sumska 41
+add-birthday Noah 05.12.1990
+add Sophia 0675556677
+add-email Sophia sophia.lee@example.com
+add-address Sophia Dnipro, Yavornytskoho 70
+add-birthday Sophia 22.07.1985
+add Mason 0966667788
+add-email Mason mason.clark@example.com
+add-address Mason Kyiv, Velyka Vasylkivska 100
+add-birthday Mason 11.10.2000
+add Ava 0737778899
+add-email Ava ava.martin@example.com
+add-address Ava Vinnytsia, Soborna 15
+add-birthday Ava 30.11.1998
+add Lucas 0508889900
+add Lucas 0679990011
+add-email Lucas lucas.white@example.com
+add-address Lucas Zaporizhzhia, Sobornyi Ave 150
+add-birthday Lucas 18.02.1979
+add Mia 0631234567
+add-email Mia mia.harris@example.com
+add-address Mia Chernihiv, Myru Ave 25
+add-birthday Mia 09.05.2003
+add Ethan 0992345678
+add-email Ethan ethan.young@example.com
+add-address Ethan Poltava, Zhovtneva 3
+add-birthday Ethan 27.09.1994
+add-note Buy a birthday gift for Olivia
+add-note Prepare slides for the demo day
+add-note Call the dentist on Monday
+add-note Read the chapter about Python classes
+add-note Buy milk, bread and coffee
+add-note Send the project report to the mentor
+add-note Book tickets to Lviv for the weekend
+add-note Review pull requests before Friday
+add-note Water the plants
+add-note Fix the bike
+add-tag 1 shopping
+add-tag 1 birthday
+add-tag 2 work
+add-tag 2 study
+add-tag 3 health
+add-tag 4 study
+add-tag 5 shopping
+add-tag 6 work
+add-tag 7 travel
+add-tag 8 work
+exit
