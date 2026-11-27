@@ -200,6 +200,10 @@ exit
 
 **Expected results:** the second email command is rejected and `all` still shows `john@example.com`. `phone JOHN` shows `John: 0501234567; 0631234567`, with one contact named `John`. Both deletion requests are cancelled by `n`. After `exit`, launch the assistant again and enter `phone john`, `all-notes`, and `search-tag demo` to verify both phones, the note, and its tag were restored. Data is written on exit, not immediately after each command.
 
+### Demo dataset
+
+A reproducible demo dataset (10 synthetic contacts and 10 notes with tags) and loading instructions for Windows and macOS/Linux are in [demo/DEMO_SETUP.md](demo/DEMO_SETUP.md). The data is loaded into a new temporary demo profile that is verified before loading and before each demo start.
+
 ## Data storage and reliability
 
 The application stores data in a per-user directory under the home folder:
