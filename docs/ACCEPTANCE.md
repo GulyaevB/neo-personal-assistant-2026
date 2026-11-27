@@ -466,10 +466,10 @@ ls "${DATA:?}"/contacts.*.bak | wc -l          # must print 1
 shasum -a 256 "$HOME/original-contacts.json" "${DATA:?}"/contacts.*.bak   # both hashes must be equal
 ```
 
-PowerShell (paste as **one line**: PowerShell 5.1 runs a pasted `if` line on its own, so an `else` on the next line fails):
+PowerShell (paste as **one line**: PowerShell 5.1 runs a pasted `if` line on its own, so an `else` on the next line fails). The check fails closed: any error, a missing or extra backup, or an empty hash prints `FAIL`:
 
 ```powershell
-need-data; $baks = @(Get-ChildItem -LiteralPath $DATA -Filter 'contacts.*.bak'); if ($baks.Count -ne 1) { "FAIL: expected 1 backup, found $($baks.Count)" } else { $orig = (Get-FileHash -Algorithm SHA256 (Join-Path $env:USERPROFILE original-contacts.json)).Hash; $bak = (Get-FileHash -Algorithm SHA256 $baks[0].FullName).Hash; if ($orig -eq $bak) { "OK: identical, $bak" } else { "FAIL: $orig != $bak" } }
+need-data; try { $baks = @(Get-ChildItem -LiteralPath $DATA -Filter 'contacts.*.bak' -ErrorAction Stop); if ($baks.Count -ne 1) { throw "expected 1 backup, found $($baks.Count)" }; $orig = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $env:USERPROFILE original-contacts.json) -ErrorAction Stop).Hash; $bak = (Get-FileHash -Algorithm SHA256 -LiteralPath $baks[0].FullName -ErrorAction Stop).Hash; if (-not $orig -or -not $bak) { throw "empty hash" }; if ($orig -eq $bak) { "OK: identical, $bak" } else { "FAIL: $orig != $bak" } } catch { "FAIL: $($_.Exception.Message)" }
 ```
 
 Contact fixtures (one line each):
