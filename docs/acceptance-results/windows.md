@@ -409,7 +409,7 @@ Run in the `acceptance-run` folder.
 | H4 | OOP: `Field` → `Name`/`Phone`/`Email`/`Address`/`Birthday`; `AssistantError` → errors; `AddressBook`/`NoteBook` → `UserDict` | Inheritance used as planned | AC-11 | T02–T11 | — | not in Windows scope (Platform coverage) |
 | H5 | Composition: `Record` has fields, `AddressBook` has `Record`, `NoteBook` has `Note`, `Context` has both books | Composition used as planned | AC-11 | T02 | — | not in Windows scope (Platform coverage) |
 | H6 | Validation lives in field / model classes, not in handlers | Confirmed by code review | AC-12, PL | all | — | not in Windows scope (Platform coverage) |
-| H7 | `grep -rnE "TODO\|NotImplementedError" assistant/` (PowerShell: `Select-String -Path assistant\*.py -Pattern "TODO\|NotImplementedError"`) | Prints nothing | AC-3 | all | ✅ | prints nothing with `-Pattern "TODO|NotImplementedError"` (note N3) |
+| H7 | `grep -rnE "TODO\|NotImplementedError" assistant/` (PowerShell: `Select-String -Path assistant\*.py -Pattern "TODO\|NotImplementedError"`) | Prints nothing | AC-3 | all | ✅ | prints nothing; run with a single regex for TODO or NotImplementedError (note N3). Checklist now uses the two-pattern command from #44: `-Pattern "TODO","NotImplementedError"` |
 | H8 | Unexpected error inside a command: `pytest tests/test_cli_errors.py -v` | All pass, including: traceback goes to `assistant.log` (`test_traceback_is_written_to_log`); no exception messages or arguments in the log (`test_exception_messages_are_not_logged`, `test_arguments_are_not_logged`); log can't be opened, or writing / rotation fails → CLI keeps running, nothing is printed to the console and the message does **not** say details were saved (`test_log_cannot_be_opened`, `test_log_write_or_rollover_fails`); logging works again after a failure (`test_log_works_again_after_a_failed_write`) | AC-9 | T32 | ✅ | 27 passed |
 | H9 | Code review of `assistant/cli.py` | Log rotates: `RotatingFileHandler(maxBytes=1_000_000, backupCount=1)`; the log file is created only on the first unexpected error | PL | T32 | — | not in Windows scope (Platform coverage) |
 | H10 | After sections A–G, list each section's data folder | No `assistant.log` after a normal run (no unexpected errors) | PL | T32 | ✅ | no `assistant.log` in any section folder |
@@ -517,20 +517,20 @@ Contact fixtures (one line each):
 
 | Section | ✅ | ❌ | ⛔ | ⏭ | ⬜ | Notes |
 |---------|----|----|----|----|----|-------|
-| A. Repository, docs, install | | | | | | |
-| B. CLI loop and usability | | | | | | |
-| C. Contacts | | | | | | |
-| D. Notes | | | | | | |
-| E. Persistence and old data | | | | | | |
-| F. Bonus: tags | | | | | | |
-| G. Bonus: intelligent analysis | | | | | | |
-| H. Code quality and diagnostics | | | | | | |
-| I. Release gates | | | | | | |
+| A. Repository, docs, install | 4 | 0 | 0 | 0 | 0 | A2, A4, A5, A7 (A1, A3, A6 macOS only); A2 retested on 71552c0 |
+| B. CLI loop and usability | 14 | 0 | 0 | 0 | 0 | PowerShell pipe and cmd.exe in B12, B14 |
+| C. Contacts | 29 | 0 | 0 | 0 | 0 | run on 26 Nov: birthday dates shifted by step 3 |
+| D. Notes | 11 | 0 | 0 | 0 | 0 | D10, D11 rerun in section D2 |
+| E. Persistence and old data | 14 | 0 | 0 | 0 | 0 | E12 check run as one line (N2); KI-1, KI-2 accepted limitations |
+| F. Bonus: tags | 10 | 0 | 0 | 0 | 0 | |
+| G. Bonus: intelligent analysis | 3 | 0 | 0 | 0 | 0 | |
+| H. Code quality and diagnostics | 6 | 0 | 0 | 0 | 0 | H2, H3, H7, H8, H10, H11 (others macOS only) |
+| I. Release gates | 0 | 0 | 0 | 0 | 5 | pending until the Lead's sign-off |
+| **Total (Windows rows)** | **91** | **0** | **0** | **0** | — | 91/91 assigned rows passed |
 
 ## Run log
 
 | Tester | OS and version | Shell | Python | Commit | CI run | Sections | Date |
 |--------|----------------|-------|--------|--------|--------|----------|------|
-| Kate | macOS | zsh | | | | A–I | |
 | Oksana | Windows 11 (build 26100) | Windows PowerShell 5.1.26100.9818 | 3.13.14 | cfc8074 | [CI #127](https://github.com/GulyaevB/neo-personal-assistant-2026/actions/runs/45813181777) | A2, A4, A5, A7, B1–B14, C, D, E, F, G, H2, H3, H7, H8, H10, H11 | 26 Nov 2026 |
 | Oksana (A2 retest) | Windows 11 (build 26100) | Windows PowerShell 5.1.26100.9818 | 3.13.14 | 71552c0 | [CI ✓ 2/2 on 71552c0](https://github.com/GulyaevB/neo-personal-assistant-2026/commit/71552c0c71eef0e6c3d81ab93948bab017e0b2e6) | A2 | 27 Nov 2026 |

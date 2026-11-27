@@ -219,8 +219,8 @@ Setup: `section A`.
 | ID | Check | Expected | Source | Task | Status | Evidence / Defect |
 |----|-------|----------|--------|------|--------|-------------------|
 | A1 | Open the GitHub repo in a private browser window | Repo is public | AC-1 | T01 | ✅ | incognito, no login: repo Public, code and README visible, cfc8074 (A1.png) |
-| A2 | Follow only `README.md` ("Quick start") to install and start the app | Install and run steps work as written | AC-2 | T27 | ✅ | macOS: README Quick start steps followed (clone, venv, activate, pip install ., assistant) — all worked; retest on 71552c0 after #41: fresh clone, README Quick start steps 2–4 (venv, pip install ., assistant) OK (A2-A3-retest.png) |
-| A3 | Compare README "Command reference" with `help` | All 25 commands from `help` are documented with an example | AC-2, PL | T27 | ✅ | help: 25 commands; README "Command reference": all 25 with examples (Contacts 12, Notes 5, Tags 4, App 4) (A3.png); retest on 71552c0: help shows 25 commands, README Command reference unchanged (A2-A3-retest.png) |
+| A2 | Follow only `README.md` ("Quick start") to install and start the app | Install and run steps work as written | AC-2 | T27 | ✅ | macOS: README Quick start steps followed (clone, venv, activate, pip install ., assistant) — all worked; retest on 71552c0 after #41: fresh clone, README Quick start steps 2–4 (venv, pip install ., assistant) OK (A2-A3_retest.png) |
+| A3 | Compare README "Command reference" with `help` | All 25 commands from `help` are documented with an example | AC-2, PL | T27 | ✅ | help: 25 commands; README "Command reference": all 25 with examples (Contacts 12, Notes 5, Tags 4, App 4) (A3.png); retest on 71552c0: help shows 25 commands, README Command reference unchanged (A2-A3_retest.png) |
 | A4 | `pip install .` in a clean venv | Installs without errors, pulls `prompt_toolkit` | PL | T26 | ✅ | pip install . OK, prompt_toolkit-3.0.53 installed |
 | A5 | From another folder (`cd ~`) run `assistant`, `exit`, then `python -m assistant`, `exit` | Both entry points start the app and say `Goodbye!` | PL | T26 | ✅ | from temp $HOME (outside repo): assistant and python -m assistant both start and say Goodbye! (A5.png) |
 | A6 | Public classes and functions have docstrings | Spot check models, handlers, cli | AC-2 | all | ✅ | spot check fields.py, note_handlers.py, cli.py: module, class and function docstrings in English (only stdlib overrides like format/handleError rely on the class docstring) |
@@ -244,8 +244,8 @@ Setup: `section B`, start `assistant`. Before B8 run `add John 0501234567`.
 | B10 | `exit`; start again, `close` | `Goodbye!`, app stops (both commands) | AC-7 | T17 | ✅ | exit and close both say Goodbye! and stop (B-session_4.png, B-session_B10.png) |
 | B11 | Start, press Ctrl+C; start, press Ctrl+D | App stops without traceback | AC-9 | T17 | ✅ | Ctrl+C and Ctrl+D at the prompt: Goodbye!, no traceback (B-session_B11.png) |
 | B12 | Without a console. macOS/Linux: `printf 'help\nexit\n' \| assistant`. PowerShell: `"help","exit" \| assistant`. cmd.exe: `assistant < commands.txt` | Help and `Goodbye!` printed, no `NoConsoleScreenBufferError`, no traceback | AC-9 | T33 | ✅ | piped input (printf help/exit into assistant): help + Goodbye!, no traceback (B-session_12-14.png) |
-| B13 | Interactive console: run `help`, `all`, then press ↑ twice | The previous commands come back (`all`, then `help`); Enter runs the shown command | AC-6 | U1 | ✅ | ↑ twice brings back the previous command "add" (B-session_3.png) |
-| B14 | Redirected stdout. macOS/Linux: `printf 'help\nexit\n' \| assistant > "$HOME/out.txt"; cat "$HOME/out.txt"`. PowerShell: `"help","exit" \| assistant > (Join-Path $env:USERPROFILE out.txt); Get-Content (Join-Path $env:USERPROFILE out.txt)` | The file has the help text and `Goodbye!`, no traceback, the console stays clean | AC-9 | T33 |  ✅ | stdout redirected to $HOME/out.txt: help + Goodbye! in plain text, no escape codes, no traceback (B12-B14.png) |
+| B13 | Interactive console: run `help`, `all`, then press ↑ twice | The previous commands come back (`all`, then `help`); Enter runs the shown command | AC-6 | U1 | ✅ | targeted retest on 71552c0 in a fresh section B13: help, all, then ↑ → "all", ↑ → "help", Enter runs help (B13-retest-1.png, B13-retest-2.png, B13-retest-3.png). First run on cfc8074 had other commands before ↑, so ↑ twice showed "add" (B-session_3.png) |
+| B14 | Redirected stdout. macOS/Linux: `printf 'help\nexit\n' \| assistant > "$HOME/out.txt"; cat "$HOME/out.txt"`. PowerShell: `"help","exit" \| assistant > (Join-Path $env:USERPROFILE out.txt); Get-Content (Join-Path $env:USERPROFILE out.txt)` | The file has the help text and `Goodbye!`, no traceback, the console stays clean | AC-9 | T33 |  ✅ | stdout redirected to $HOME/out.txt: help + Goodbye! in plain text, no escape codes, no traceback (B-session_12-14.png) |
 
 ## C. Contacts
 
@@ -278,10 +278,10 @@ Setup: `section C`, start `assistant`, run the rows in this order without restar
 | C22 | Year boundary (25 Dec → 2 Jan) and 29 Feb in a non-leap year | Can't be reproduced by hand on 27 Nov: `pytest tests/test_birthdays.py -v` passes `test_january_birthdays_on_25_december` and `test_leap_day_birthday` | TZ-2, PL | T10 | ✅ | pytest: test_january_birthdays_on_25_december + test_leap_day_birthday x2 — 3 passed (C-session_C22.png) |
 | C23 | `change John 0501234567 0509998877` | `Phone updated for 'John'.` | TZ-5 | T19 | ✅ | "Phone updated for 'John'." (C-session_C23-24.png) |
 | C24 | `change John 1111111111 0509998877` | `Contact 'John' has no phone '1111111111'.` | TZ-5, AC-10 | T05 | ✅ | "Contact 'John' has no phone '1111111111'." (C-session_C23-24.png) |
-| C25 | `remove-phone John 0671112233`, `phone John` | `Phone removed from 'John'.`, `John: 0509998877` | TZ-5 | T07, T19 | ✅ | "Phone removed from 'John'.", phone John: 0509998877 (C-session_25-28.png) |
-| C26 | `delete John` → `n`; repeat with Enter and with Ctrl+C | `Deletion cancelled.`, `phone John` still works | TZ-5 | U4 | ✅ | n, Enter, Ctrl+C: "Deletion cancelled." each time; phone John still works (C-session_25-28.png) |
-| C27 | `delete John` → `y`, then `phone John` | `Contact 'John' deleted.`, then `Contact 'John' not found.` | TZ-5 | T08, U4 | ✅ | y: "Contact 'John' deleted.", then "Contact 'John' not found." (C-session_25-28.png) |
-| C28 | `delete Nobody` | `Contact 'Nobody' not found.` | AC-10 | T08 | ✅ | "Contact 'Nobody' not found." (C-session_25-28.png) |
+| C25 | `remove-phone John 0671112233`, `phone John` | `Phone removed from 'John'.`, `John: 0509998877` | TZ-5 | T07, T19 | ✅ | "Phone removed from 'John'.", phone John: 0509998877 (C-session_23-28.png) |
+| C26 | `delete John` → `n`; repeat with Enter and with Ctrl+C | `Deletion cancelled.`, `phone John` still works | TZ-5 | U4 | ✅ | n, Enter, Ctrl+C: "Deletion cancelled." each time; phone John still works (C-session_23-28.png) |
+| C27 | `delete John` → `y`, then `phone John` | `Contact 'John' deleted.`, then `Contact 'John' not found.` | TZ-5 | T08, U4 | ✅ | y: "Contact 'John' deleted.", then "Contact 'John' not found." (C-session_23-28.png) |
+| C28 | `delete Nobody` | `Contact 'Nobody' not found.` | AC-10 | T08 | ✅ | "Contact 'Nobody' not found." (C-session_23-28.png) |
 
 ## D. Notes
 
@@ -338,7 +338,7 @@ for the row + the shared `notes.json`), start the app, `all`, `all-notes`,
 | E9b | Birthday `01.01.1899` (valid before T34) next to valid `Bob` | `Contacts not loaded: Ann. ...`; `all` shows Bob | PL | T34 | ✅ | "Contacts not loaded: Ann."; all: Bob (E-9b.png) |
 | E10 | Email `a..b@c.com` (valid before #34) next to valid `Bob` | `Contacts not loaded: John. ...`; `all` shows Bob; John is in the `.bak` copy | PL | T34 | ✅ | "Contacts not loaded: John."; all: Bob; John kept in .bak (E-10.png) |
 | E11 | Phone `123` next to valid `Bob` (this phone was **always** invalid, a damaged record, not old data) | `Contacts not loaded: Ann. ...`; `all` shows Bob | AC-9 | T16, T34 | ✅ | "Contacts not loaded: Ann."; all: Bob (E-11.png) |
-| E12 | For each of E8–E11 | Notes are not affected: `all-notes` shows `1: Keep me [home]`, no `notes.*.bak`. After `exit`: `contacts.json` has only the loaded contacts; exactly **one** `contacts.*.bak`, and its SHA-256 equals the SHA-256 of the fixture (appendix: `shasum -a 256` / `Get-FileHash`) | PL | T16, T34 | ✅ | E8–E11: notes "1: Keep me [home]" unaffected, 1 backup, SHA-256 of .bak = fixture, contacts.json has only loaded contacts (E-8…E-11.png) |
+| E12 | For each of E8–E11 | Notes are not affected: `all-notes` shows `1: Keep me [home]`, no `notes.*.bak`. After `exit`: `contacts.json` has only the loaded contacts; exactly **one** `contacts.*.bak`, and its SHA-256 equals the SHA-256 of the fixture (appendix: `shasum -a 256` / `Get-FileHash`) | PL | T16, T34 | ✅ | E8–E11: notes "1: Keep me [home]" unaffected, 1 backup, SHA-256 of .bak = fixture, contacts.json has only loaded contacts (E-8.png, E-9a.png, E-9b.png, E-10.png, E-11.png) |
 | E13 | `pytest tests/test_storage.py -k test_backups_in_same_second_are_all_kept -v` | `2 passed`: two backups in the same second are both kept, for the **move** path (unreadable file) and the **copy** path (skipped contacts); each `.bak` keeps its original bytes | PL | T34 | ✅ | test_backups_in_same_second_are_all_kept: 2 passed (move + copy) (E-13.png) |
 
 ## F. Bonus: tags (10 points)
@@ -508,4 +508,4 @@ Contact fixtures (one line each):
 
 Run folder (macOS): /var/folders/_4/93v0_lvd55n0py1nznbzgv5c0000gn/T/tmp.eAcyyFcmWj
 
-Retest (macOS): A2, A3 on 71552c0 (after #41, README only) — 27 Nov 2026, folder ~/Desktop/acceptance-retest
+Retest (macOS): A2, A3, B13 on 71552c0 (after #41, README only; code identical to cfc8074) — 27 Nov 2026, folder ~/Desktop/acceptance-retest, CI on 71552c0: https://github.com/GulyaevB/neo-personal-assistant-2026/actions/runs/45956467726
