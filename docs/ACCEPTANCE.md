@@ -381,7 +381,7 @@ Run in the `acceptance-run` folder.
 | H4 | OOP: `Field` → `Name`/`Phone`/`Email`/`Address`/`Birthday`; `AssistantError` → errors; `AddressBook`/`NoteBook` → `UserDict` | Inheritance used as planned | AC-11 | T02–T11 | ⬜ | |
 | H5 | Composition: `Record` has fields, `AddressBook` has `Record`, `NoteBook` has `Note`, `Context` has both books | Composition used as planned | AC-11 | T02 | ⬜ | |
 | H6 | Validation lives in field / model classes, not in handlers | Confirmed by code review | AC-12, PL | all | ⬜ | |
-| H7 | `grep -rnE "TODO\|NotImplementedError" assistant/` (PowerShell: `Select-String -Path assistant\*.py -Pattern "TODO\|NotImplementedError"`) | Prints nothing | AC-3 | all | ⬜ | |
+| H7 | `grep -rn -e TODO -e NotImplementedError assistant/` (PowerShell: `Select-String -Path assistant\*.py -Pattern "TODO","NotImplementedError"`) | Prints nothing | AC-3 | all | ⬜ | |
 | H8 | Unexpected error inside a command: `pytest tests/test_cli_errors.py -v` | All pass, including: traceback goes to `assistant.log` (`test_traceback_is_written_to_log`); no exception messages or arguments in the log (`test_exception_messages_are_not_logged`, `test_arguments_are_not_logged`); log can't be opened, or writing / rotation fails → CLI keeps running, nothing is printed to the console and the message does **not** say details were saved (`test_log_cannot_be_opened`, `test_log_write_or_rollover_fails`); logging works again after a failure (`test_log_works_again_after_a_failed_write`) | AC-9 | T32 | ⬜ | |
 | H9 | Code review of `assistant/cli.py` | Log rotates: `RotatingFileHandler(maxBytes=1_000_000, backupCount=1)`; the log file is created only on the first unexpected error | PL | T32 | ⬜ | |
 | H10 | After sections A–G, list each section's data folder | No `assistant.log` after a normal run (no unexpected errors) | PL | T32 | ⬜ | |
@@ -466,15 +466,10 @@ ls "${DATA:?}"/contacts.*.bak | wc -l          # must print 1
 shasum -a 256 "$HOME/original-contacts.json" "${DATA:?}"/contacts.*.bak   # both hashes must be equal
 ```
 
+PowerShell (paste as **one line**: PowerShell 5.1 runs a pasted `if` line on its own, so an `else` on the next line fails). The check fails closed: any error, a missing or extra backup, or an empty hash prints `FAIL`:
+
 ```powershell
-need-data
-$baks = @(Get-ChildItem -LiteralPath $DATA -Filter 'contacts.*.bak')
-if ($baks.Count -ne 1) { "FAIL: expected 1 backup, found $($baks.Count)" }
-else {
-  $orig = (Get-FileHash -Algorithm SHA256 (Join-Path $env:USERPROFILE original-contacts.json)).Hash
-  $bak = (Get-FileHash -Algorithm SHA256 $baks[0].FullName).Hash
-  if ($orig -eq $bak) { "OK: identical, $bak" } else { "FAIL: $orig != $bak" }
-}
+need-data; try { $baks = @(Get-ChildItem -LiteralPath $DATA -Filter 'contacts.*.bak' -ErrorAction Stop); if ($baks.Count -ne 1) { throw "expected 1 backup, found $($baks.Count)" }; $orig = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $env:USERPROFILE original-contacts.json) -ErrorAction Stop).Hash; $bak = (Get-FileHash -Algorithm SHA256 -LiteralPath $baks[0].FullName -ErrorAction Stop).Hash; if (-not $orig -or -not $bak) { throw "empty hash" }; if ($orig -eq $bak) { "OK: identical, $bak" } else { "FAIL: $orig != $bak" } } catch { "FAIL: $($_.Exception.Message)" }
 ```
 
 Contact fixtures (one line each):
