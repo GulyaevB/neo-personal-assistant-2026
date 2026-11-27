@@ -202,7 +202,7 @@ exit
 
 ### Demo dataset
 
-A reproducible demo dataset (10 synthetic contacts and 10 notes with tags) and loading instructions for Windows and macOS/Linux are in [demo/DEMO_SETUP.md](demo/DEMO_SETUP.md). It uses a separate temporary profile and does not touch real data.
+A reproducible demo dataset (10 synthetic contacts and 10 notes with tags) and loading instructions for Windows and macOS/Linux are in [demo/DEMO_SETUP.md](demo/DEMO_SETUP.md). The data is loaded into a new temporary demo profile that is verified before loading and before each demo start.
 
 ## Data storage and reliability
 
