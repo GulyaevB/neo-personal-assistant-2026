@@ -249,8 +249,8 @@ Setup: `section A`.
 | A1 | Open the GitHub repo in a private browser window | Repo is public | AC-1 | T01 | — | not in Windows scope (Platform coverage) |
 | A2 | Follow only `README.md` ("Quick start") to install and start the app | Install and run steps work as written | AC-2 | T27 | ✅ | Retest on `71552c0` (after #41): fresh clone, README Windows PowerShell Quick start step by step (incl. `Set-ExecutionPolicy`), venv activated, `pip install .`, isolated `DATA_DIR`, both entry points with piped input from `%TEMP%` work. win_A2-retest-1.png, win_A2-retest-2.png. On `cfc8074` activation failed without `Set-ExecutionPolicy` (note N1) |
 | A3 | Compare README "Command reference" with `help` | All 25 commands from `help` are documented with an example | AC-2, PL | T27 | — | not in Windows scope (Platform coverage) |
-| A4 | `pip install .` in a clean venv | Installs without errors, pulls `prompt_toolkit` | PL | T26 | ✅ | console log |
-| A5 | From another folder (`cd ~`) run `assistant`, `exit`, then `python -m assistant`, `exit` | Both entry points start the app and say `Goodbye!` | PL | T26 | ✅ | console log (`cd ~` = C:\Users\Administrator) |
+| A4 | `pip install .` in a clean venv | Installs without errors, pulls `prompt_toolkit` | PL | T26 | ✅ | win_console_log.txt |
+| A5 | From another folder (`cd ~`) run `assistant`, `exit`, then `python -m assistant`, `exit` | Both entry points start the app and say `Goodbye!` | PL | T26 | ✅ | win_console_log.txt (`cd ~` = C:\Users\Administrator) |
 | A6 | Public classes and functions have docstrings | Spot check models, handlers, cli | AC-2 | all | — | not in Windows scope (Platform coverage) |
 | A7 | Windows: steps from "How to run" in PowerShell, then `assistant` | Starts, colors and Tab work | PL | T33 | ✅ | A7-windows-colors.png; Tab, colors |
 
@@ -260,20 +260,20 @@ Setup: `section B`, start `assistant`. Before B8 run `add John 0501234567`.
 
 | ID | Check | Expected | Source | Task | Status | Evidence / Defect |
 |----|-------|----------|--------|------|--------|-------------------|
-| B1 | Start the app | `Personal Assistant is running. Type 'exit' to quit.` shown **once** | AC-6 | T17 | ✅ | console log |
-| B2 | Run 3 commands in a row (`help`, `all`, `all-notes`) | Greeting is **not** repeated after each command | AC-6 | T17 | ✅ | console log |
-| B3 | `help` | `Available commands:` + 25 commands with a short description | AC-6, PL | T18 | ✅ | console log |
-| B4 | Press Enter on empty input | Nothing happens, prompt is shown again | AC-10 | T17 | ✅ | console log |
-| B5 | `xyz` | `Unknown command 'xyz'.`, app keeps running | AC-10 | T17 | ✅ | console log |
-| B6 | `add` without arguments | `Missing arguments. Use: add <name> <phone>`, no traceback | AC-10 | T23 | ✅ | console log |
+| B1 | Start the app | `Personal Assistant is running. Type 'exit' to quit.` shown **once** | AC-6 | T17 | ✅ | win_console_log.txt |
+| B2 | Run 3 commands in a row (`help`, `all`, `all-notes`) | Greeting is **not** repeated after each command | AC-6 | T17 | ✅ | win_console_log.txt |
+| B3 | `help` | `Available commands:` + 25 commands with a short description | AC-6, PL | T18 | ✅ | win_console_log.txt |
+| B4 | Press Enter on empty input | Nothing happens, prompt is shown again | AC-10 | T17 | ✅ | win_console_log.txt |
+| B5 | `xyz` | `Unknown command 'xyz'.`, app keeps running | AC-10 | T17 | ✅ | win_console_log.txt |
+| B6 | `add` without arguments | `Missing arguments. Use: add <name> <phone>`, no traceback | AC-10 | T23 | ✅ | win_console_log.txt |
 | B7 | `bi` + Tab | Completes to `birthdays` | AC-6 | U1 | ✅ | Tab checked by tester |
 | B8 | `phone J` + Tab | Completes to `phone John` | AC-6 | U1 | ✅ | Tab checked by tester |
 | B9 | Look at B5, B6, B8 output | Success green, errors red, commands and tags highlighted | AC-6 | U2 | ✅ | colors checked by tester |
-| B10 | `exit`; start again, `close` | `Goodbye!`, app stops (both commands) | AC-7 | T17 | ✅ | console log |
-| B11 | Start, press Ctrl+C; start, press Ctrl+D | App stops without traceback | AC-9 | T17 | ✅ | console log |
+| B10 | `exit`; start again, `close` | `Goodbye!`, app stops (both commands) | AC-7 | T17 | ✅ | win_console_log.txt |
+| B11 | Start, press Ctrl+C; start, press Ctrl+D | App stops without traceback | AC-9 | T17 | ✅ | win_console_log.txt |
 | B12 | Without a console. macOS/Linux: `printf 'help\nexit\n' \| assistant`. PowerShell: `"help","exit" \| assistant`. cmd.exe: `assistant < commands.txt` | Help and `Goodbye!` printed, no `NoConsoleScreenBufferError`, no traceback | AC-9 | T33 | ✅ | PowerShell pipe and `cmd /c "assistant < commands.txt"` |
 | B13 | Interactive console: run `help`, `all`, then press ↑ twice | The previous commands come back (`all`, then `help`); Enter runs the shown command | AC-6 | U1 | ✅ | history ↑ checked by tester |
-| B14 | Redirected stdout. macOS/Linux: `printf 'help\nexit\n' \| assistant > "$HOME/out.txt"; cat "$HOME/out.txt"`. PowerShell: `"help","exit" \| assistant > (Join-Path $env:USERPROFILE out.txt); Get-Content (Join-Path $env:USERPROFILE out.txt)` | The file has the help text and `Goodbye!`, no traceback, the console stays clean | AC-9 | T33 | ✅ | console log |
+| B14 | Redirected stdout. macOS/Linux: `printf 'help\nexit\n' \| assistant > "$HOME/out.txt"; cat "$HOME/out.txt"`. PowerShell: `"help","exit" \| assistant > (Join-Path $env:USERPROFILE out.txt); Get-Content (Join-Path $env:USERPROFILE out.txt)` | The file has the help text and `Goodbye!`, no traceback, the console stays clean | AC-9 | T33 | ✅ | win_console_log.txt |
 
 ## C. Contacts
 
@@ -281,35 +281,35 @@ Setup: `section C`, start `assistant`, run the rows in this order without restar
 
 | ID | Check | Expected | Source | Task | Status | Evidence / Defect |
 |----|-------|----------|--------|------|--------|-------------------|
-| C1 | `add John 0501234567` | `Contact 'John' added.` | TZ-1 | T19 | ✅ | console log |
-| C2 | `add john 0671112233`, then `all` | `Phone added to 'John'.`; `all` shows **one** John with `0501234567; 0671112233` | TZ-1 | T35 | ✅ | console log |
-| C3 | `add John 0501234567` (same phone) | `Contact 'John' already has phone '0501234567'.` | AC-12 | T35 | ✅ | console log |
-| C4 | `add Anna 123` | `Invalid phone '123'. Use 10 digits.` (Anna is not created) | TZ-3, AC-12 | T05, T19 | ✅ | console log |
-| C5 | `add 123 0501234567` | `Invalid name '123'. Use at least one letter.` | AC-12 | T34 | ✅ | console log |
-| C6 | `add-email John john@mail.com` | `Email set for 'John'.` | TZ-1 | T06, T19 | ✅ | console log |
-| C7 | `add-email John john@mail` | `Invalid email 'john@mail'. Use name@domain.com.`, email stays `john@mail.com` | TZ-3, AC-12 | T06 | ✅ | console log |
-| C7b | `add-email John a..b@c.com`, then `all` | `Invalid email 'a..b@c.com'. Use name@domain.com.`; `all` still shows `john@mail.com`. If the email **was** changed (❌), run `add-email John john@mail.com` before C15, so the next rows are not affected | AC-12 | T34 | ✅ | console log |
-| C8 | `add-address John Kyiv, Khreshchatyk 1` | `Address set for 'John'.` | TZ-1 | T06, T19 | ✅ | console log |
+| C1 | `add John 0501234567` | `Contact 'John' added.` | TZ-1 | T19 | ✅ | win_console_log.txt |
+| C2 | `add john 0671112233`, then `all` | `Phone added to 'John'.`; `all` shows **one** John with `0501234567; 0671112233` | TZ-1 | T35 | ✅ | win_console_log.txt |
+| C3 | `add John 0501234567` (same phone) | `Contact 'John' already has phone '0501234567'.` | AC-12 | T35 | ✅ | win_console_log.txt |
+| C4 | `add Anna 123` | `Invalid phone '123'. Use 10 digits.` (Anna is not created) | TZ-3, AC-12 | T05, T19 | ✅ | win_console_log.txt |
+| C5 | `add 123 0501234567` | `Invalid name '123'. Use at least one letter.` | AC-12 | T34 | ✅ | win_console_log.txt |
+| C6 | `add-email John john@mail.com` | `Email set for 'John'.` | TZ-1 | T06, T19 | ✅ | win_console_log.txt |
+| C7 | `add-email John john@mail` | `Invalid email 'john@mail'. Use name@domain.com.`, email stays `john@mail.com` | TZ-3, AC-12 | T06 | ✅ | win_console_log.txt |
+| C7b | `add-email John a..b@c.com`, then `all` | `Invalid email 'a..b@c.com'. Use name@domain.com.`; `all` still shows `john@mail.com`. If the email **was** changed (❌), run `add-email John john@mail.com` before C15, so the next rows are not affected | AC-12 | T34 | ✅ | win_console_log.txt |
+| C8 | `add-address John Kyiv, Khreshchatyk 1` | `Address set for 'John'.` | TZ-1 | T06, T19 | ✅ | win_console_log.txt |
 | C9 | `add-birthday John 30.11.1990` | `Birthday set for 'John'.` | TZ-1 | T07, T19 | ✅ | run on Thu 26 Nov: John `29.11.1990` (step 3 rule) |
-| C10 | `add-birthday John 31.02.1990`, `add-birthday John 1990-05-15` | `Invalid date '...'. Use DD.MM.YYYY.` | AC-12 | T05, T07 | ✅ | console log |
-| C11 | `add-birthday John 01.01.2090` | `Birthday '01.01.2090' is in the future.` | AC-12, PL | T07 | ✅ | console log |
-| C12 | `add-birthday John 01.01.1899` | `Birthday '01.01.1899' is too old. Use 1900 or later.` | AC-12 | T34 | ✅ | console log |
+| C10 | `add-birthday John 31.02.1990`, `add-birthday John 1990-05-15` | `Invalid date '...'. Use DD.MM.YYYY.` | AC-12 | T05, T07 | ✅ | win_console_log.txt |
+| C11 | `add-birthday John 01.01.2090` | `Birthday '01.01.2090' is in the future.` | AC-12, PL | T07 | ✅ | win_console_log.txt |
+| C12 | `add-birthday John 01.01.1899` | `Birthday '01.01.1899' is too old. Use 1900 or later.` | AC-12 | T34 | ✅ | win_console_log.txt |
 | C13 | `phone john`, `show-birthday JOHN` | `John: 0501234567; 0671112233`, `John: 30.11.1990` (C10–C12 did not change it) | TZ-1 | T34 | ✅ | `John: 29.11.1990` (run on 26 Nov) |
-| C14 | `add Anna 0931112233`, `add-birthday Anna 28.11.1990`, `all` | Anna and John with all their fields | TZ-1 | T19 | ✅ | console log |
-| C15 | `search john` | John is found | TZ-4 | T09, T20 | ✅ | console log |
-| C16 | `search 050123`, `search mail.com`, `search Kyiv` | John is found each time | TZ-4 | T09 | ✅ | console log |
-| C17 | `search jhon` (typo) | John is found (fuzzy) | TZ-4, PL | T09 | ✅ | console log |
+| C14 | `add Anna 0931112233`, `add-birthday Anna 28.11.1990`, `all` | Anna and John with all their fields | TZ-1 | T19 | ✅ | win_console_log.txt |
+| C15 | `search john` | John is found | TZ-4 | T09, T20 | ✅ | win_console_log.txt |
+| C16 | `search 050123`, `search mail.com`, `search Kyiv` | John is found each time | TZ-4 | T09 | ✅ | win_console_log.txt |
+| C17 | `search jhon` (typo) | John is found (fuzzy) | TZ-4, PL | T09 | ✅ | win_console_log.txt |
 | C18 | `birthdays 7` | `Birthdays in the next 7 days:`, `28.11.2026 (Sat)  Anna`, `30.11.2026 (Mon)  John` | TZ-2 | T10, T20 | ✅ | `28.11.2026 (Sat)  Anna`, `29.11.2026 (Sun)  John` (run on 26 Nov) |
-| C19 | Anna's line in C18 | Real date on Saturday, no shift to Monday (team decision in T10) | PL | T10 | ✅ | console log |
-| C20 | `birthdays` (no argument) | Same list as C18 (default 7 days) | PL | T20 | ✅ | console log |
-| C21 | `birthdays abc`, `birthdays 0` | `Invalid days 'abc'. Use a positive number.` / `Invalid days '0'. ...` | AC-10, PL | T20 | ✅ | console log |
+| C19 | Anna's line in C18 | Real date on Saturday, no shift to Monday (team decision in T10) | PL | T10 | ✅ | win_console_log.txt |
+| C20 | `birthdays` (no argument) | Same list as C18 (default 7 days) | PL | T20 | ✅ | win_console_log.txt |
+| C21 | `birthdays abc`, `birthdays 0` | `Invalid days 'abc'. Use a positive number.` / `Invalid days '0'. ...` | AC-10, PL | T20 | ✅ | win_console_log.txt |
 | C22 | Year boundary (25 Dec → 2 Jan) and 29 Feb in a non-leap year | Can't be reproduced by hand on 27 Nov: `pytest tests/test_birthdays.py -v` passes `test_january_birthdays_on_25_december` and `test_leap_day_birthday` | TZ-2, PL | T10 | ✅ | 7 passed, incl. both named tests |
-| C23 | `change John 0501234567 0509998877` | `Phone updated for 'John'.` | TZ-5 | T19 | ✅ | console log |
-| C24 | `change John 1111111111 0509998877` | `Contact 'John' has no phone '1111111111'.` | TZ-5, AC-10 | T05 | ✅ | console log |
-| C25 | `remove-phone John 0671112233`, `phone John` | `Phone removed from 'John'.`, `John: 0509998877` | TZ-5 | T07, T19 | ✅ | console log |
-| C26 | `delete John` → `n`; repeat with Enter and with Ctrl+C | `Deletion cancelled.`, `phone John` still works | TZ-5 | U4 | ✅ | console log |
-| C27 | `delete John` → `y`, then `phone John` | `Contact 'John' deleted.`, then `Contact 'John' not found.` | TZ-5 | T08, U4 | ✅ | console log |
-| C28 | `delete Nobody` | `Contact 'Nobody' not found.` | AC-10 | T08 | ✅ | console log |
+| C23 | `change John 0501234567 0509998877` | `Phone updated for 'John'.` | TZ-5 | T19 | ✅ | win_console_log.txt |
+| C24 | `change John 1111111111 0509998877` | `Contact 'John' has no phone '1111111111'.` | TZ-5, AC-10 | T05 | ✅ | win_console_log.txt |
+| C25 | `remove-phone John 0671112233`, `phone John` | `Phone removed from 'John'.`, `John: 0509998877` | TZ-5 | T07, T19 | ✅ | win_console_log.txt |
+| C26 | `delete John` → `n`; repeat with Enter and with Ctrl+C | `Deletion cancelled.`, `phone John` still works | TZ-5 | U4 | ✅ | win_console_log.txt |
+| C27 | `delete John` → `y`, then `phone John` | `Contact 'John' deleted.`, then `Contact 'John' not found.` | TZ-5 | T08, U4 | ✅ | win_console_log.txt |
+| C28 | `delete Nobody` | `Contact 'Nobody' not found.` | AC-10 | T08 | ✅ | win_console_log.txt |
 
 ## D. Notes
 
@@ -317,15 +317,15 @@ Setup: `section D`, start `assistant`, run the rows in this order.
 
 | ID | Check | Expected | Source | Task | Status | Evidence / Defect |
 |----|-------|----------|--------|------|--------|-------------------|
-| D1 | `add-note Buy a gift for Anna`, `add-note Call the dentist`, `add-note Купити молоко` | `Note 1 added.`, `Note 2 added.`, `Note 3 added.` | TZ-6 | T11, T21 | ✅ | console log |
-| D2 | `add-note` | `Missing arguments. Use: add-note <text>`, nothing saved | AC-12 | T11, T21 | ✅ | console log |
-| D3 | `all-notes` | `1: Buy a gift for Anna`, `2: Call the dentist`, `3: Купити молоко` (Cyrillic shown correctly) | TZ-6 | T21, T25 | ✅ | console log |
-| D4 | `search-notes GIFT` | `1: Buy a gift for Anna` (any case, part of a word) | TZ-7 | T12, T21 | ✅ | console log |
-| D5 | `search-notes python` | `No notes found for 'python'.` (not an error) | TZ-7 | T12, T21 | ✅ | console log |
-| D6 | `edit-note 1 Buy flowers` | `Note 1 updated.` | TZ-8 | T11, T21 | ✅ | console log |
-| D7 | `edit-note 1` | `Missing arguments. Use: edit-note <id> <text>`, text stays `Buy flowers` | AC-10 | T11, T21 | ✅ | console log |
-| D8 | `edit-note 99 text`, `delete-note 99` | `Note with id 99 not found.` | AC-10 | T11 | ✅ | console log |
-| D9 | `edit-note abc text` | `Invalid note id 'abc'. Use a number.` | AC-10, PL | T21 | ✅ | console log |
+| D1 | `add-note Buy a gift for Anna`, `add-note Call the dentist`, `add-note Купити молоко` | `Note 1 added.`, `Note 2 added.`, `Note 3 added.` | TZ-6 | T11, T21 | ✅ | win_console_log.txt |
+| D2 | `add-note` | `Missing arguments. Use: add-note <text>`, nothing saved | AC-12 | T11, T21 | ✅ | win_console_log.txt |
+| D3 | `all-notes` | `1: Buy a gift for Anna`, `2: Call the dentist`, `3: Купити молоко` (Cyrillic shown correctly) | TZ-6 | T21, T25 | ✅ | win_console_log.txt |
+| D4 | `search-notes GIFT` | `1: Buy a gift for Anna` (any case, part of a word) | TZ-7 | T12, T21 | ✅ | win_console_log.txt |
+| D5 | `search-notes python` | `No notes found for 'python'.` (not an error) | TZ-7 | T12, T21 | ✅ | win_console_log.txt |
+| D6 | `edit-note 1 Buy flowers` | `Note 1 updated.` | TZ-8 | T11, T21 | ✅ | win_console_log.txt |
+| D7 | `edit-note 1` | `Missing arguments. Use: edit-note <id> <text>`, text stays `Buy flowers` | AC-10 | T11, T21 | ✅ | win_console_log.txt |
+| D8 | `edit-note 99 text`, `delete-note 99` | `Note with id 99 not found.` | AC-10 | T11 | ✅ | win_console_log.txt |
+| D9 | `edit-note abc text` | `Invalid note id 'abc'. Use a number.` | AC-10, PL | T21 | ✅ | win_console_log.txt |
 | D10 | `delete-note 3` → `n`, then `delete-note 3` → `y` | `Delete note 3: Купити молоко? (y/n)`; `Deletion cancelled.`; then `Note 3 deleted.` | TZ-8 | T21, U4 | ✅ | rerun in `section D2` (first run answered n twice) |
 | D11 | `add-note New note`, `all-notes` | `Note 4 added.` (id 3 is not reused); list 1, 2, 4 | PL | T11 | ✅ | rerun in `section D2`: `Note 4 added.`, list 1, 2, 4 |
 
@@ -338,13 +338,13 @@ Setup: `section E`. Check that the data folder does not exist yet:
 
 | ID | Check | Expected | Source | Task | Status | Evidence / Defect |
 |----|-------|----------|--------|------|--------|-------------------|
-| E1 | Start the app, `exit`, then `ls "${DATA:?}"` / `need-data; Get-ChildItem $DATA` | Starts with empty data; after exit the folder has `contacts.json` and `notes.json` | TZ-data, PL | T16 | ✅ | console log |
+| E1 | Start the app, `exit`, then `ls "${DATA:?}"` / `need-data; Get-ChildItem $DATA` | Starts with empty data; after exit the folder has `contacts.json` and `notes.json` | TZ-data, PL | T16 | ✅ | win_console_log.txt |
 | E2 | Start, `add John 0501234567`, `add-note Купити молоко`, `exit`; start again, `all`, `all-notes` | John and `1: Купити молоко` are there | TZ-data, AC-8 | T16, T17 | ✅ | win_E2.png |
-| E3 | `add Anna 0931112233`, then Ctrl+C; start again, `phone Anna` | `Anna: 0931112233` (saved on Ctrl+C) | AC-8, PL | T17 | ✅ | console log |
-| E4 | `add-note Second` | `Note 2 added.` (`next_id` kept after restart) | PL | T11, T16 | ✅ | console log |
-| E5 | `exit`; `cat "${DATA:?}/contacts.json" "${DATA:?}/notes.json"` / `need-data; Get-Content -Encoding utf8 (Join-Path $DATA notes.json)` | Readable JSON, Cyrillic stored as letters (not `\u0406` escapes) | TZ-data | T16, T25 | ✅ | console log |
+| E3 | `add Anna 0931112233`, then Ctrl+C; start again, `phone Anna` | `Anna: 0931112233` (saved on Ctrl+C) | AC-8, PL | T17 | ✅ | win_console_log.txt |
+| E4 | `add-note Second` | `Note 2 added.` (`next_id` kept after restart) | PL | T11, T16 | ✅ | win_console_log.txt |
+| E5 | `exit`; `cat "${DATA:?}/contacts.json" "${DATA:?}/notes.json"` / `need-data; Get-Content -Encoding utf8 (Join-Path $DATA notes.json)` | Readable JSON, Cyrillic stored as letters (not `\u0406` escapes) | TZ-data | T16, T25 | ✅ | win_console_log.txt |
 | E6 | Break notes: `echo "{not json" > "${DATA:?}/notes.json"` (PowerShell: `need-data; Set-Content -Path (Join-Path $DATA notes.json) -Value "{not json"`), start, `all`, `all-notes` | `Data file was broken, starting empty. Old data is in: .../notes.<date>-<time>.bak`; contacts still load; `No notes yet. ...` | AC-9, PL | T16, T34 | ✅ | win_E6.png; `notes.20261126-174644.bak` |
-| E7 | `exit`, `ls "${DATA:?}"` / `need-data; Get-ChildItem $DATA` | New valid `notes.json` (empty list), the `.bak` file with `{not json` is kept | PL | T16 | ✅ | console log |
+| E7 | `exit`, `ls "${DATA:?}"` / `need-data; Get-ChildItem $DATA` | New valid `notes.json` (empty list), the `.bak` file with `{not json` is kept | PL | T16 | ✅ | win_console_log.txt |
 
 ### E8–E13: old data files (legacy)
 
@@ -393,9 +393,9 @@ Setup: `section G`, start `assistant`.
 
 | ID | Check | Expected | Source | Task | Status | Evidence / Defect |
 |----|-------|----------|--------|------|--------|-------------------|
-| G1 | `ad John 0501234567` | `Unknown command 'ad'. Did you mean: add?` | TZ-B | U3 | ✅ | console log |
-| G2 | `birthdys 7` | `Unknown command 'birthdys'. Did you mean: birthdays, ...?` (`birthdays` first) | TZ-B | U3 | ✅ | console log |
-| G3 | `qwerty` | `Unknown command 'qwerty'.`, no wrong suggestion | TZ-B | U3 | ✅ | console log |
+| G1 | `ad John 0501234567` | `Unknown command 'ad'. Did you mean: add?` | TZ-B | U3 | ✅ | win_console_log.txt |
+| G2 | `birthdys 7` | `Unknown command 'birthdys'. Did you mean: birthdays, ...?` (`birthdays` first) | TZ-B | U3 | ✅ | win_console_log.txt |
+| G3 | `qwerty` | `Unknown command 'qwerty'.`, no wrong suggestion | TZ-B | U3 | ✅ | win_console_log.txt |
 
 ## H. Code quality and diagnostics
 
